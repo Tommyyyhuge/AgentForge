@@ -1,6 +1,7 @@
 """
 AgentForge 数据库连接模块
 """
+import asyncio
 import os
 
 from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
@@ -74,13 +75,17 @@ async def get_db():
 
 
 async def init_db():
-    """初始化数据库
+    """初始化数据库 — 使用 Alembic 迁移"""
+    from alembic import command
+    from alembic.config import Config
 
-    创建所有定义的表结构。
-    应在应用启动时调用一次。
-    """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    alembic_ini = os.path.join(
+        os.path.dirname(__file__), "..", "..", "alembic.ini"
+    )
+    alembic_cfg = Config(alembic_ini)
+    # Alembic upgrade 是同步的，在线程池中执行避免阻塞事件循环
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, command.upgrade, alembic_cfg, "head")
 
 
 async def close_db():
