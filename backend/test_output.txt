@@ -1,0 +1,321 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.15, pytest-7.4.3, pluggy-1.6.0
+rootdir: D:\AgentForge\backend
+configfile: pytest.ini
+plugins: anyio-3.7.1, Faker-20.1.0, asyncio-0.21.1, cov-4.1.0, mock-3.12.0
+asyncio: mode=Mode.AUTO
+collected 56 items
+
+tests\unit\test_rag_system.py ................F....F.................... [ 75%]
+....F.FF....F.                                                           [100%]
+
+================================== FAILURES ===================================
+________________________ TestChunkText.test_empty_text ________________________
+tests\unit\test_rag_system.py:262: in test_empty_text
+    assert rag_system._chunk_text("   ") == []
+E   AssertionError: assert ['   '] == []
+E     Left contains one more item: '   '
+E     Use -v to get more diff
+---------------------------- Captured stdout setup ----------------------------
+2026-05-21 13:12:22,521 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:22,521 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tasks")
+2026-05-21 13:12:22,521 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,522 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("steps")
+2026-05-21 13:12:22,522 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,522 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("agent_states")
+2026-05-21 13:12:22,523 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,523 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-21 13:12:22,523 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,524 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("memories")
+2026-05-21 13:12:22,524 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,525 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("tasks")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("steps")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("agent_states")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("memories")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+____________________ TestChunkText.test_paragraph_boundary ____________________
+tests\unit\test_rag_system.py:297: in test_paragraph_boundary
+    assert len(chunk) <= 400 + 50  # 允许 overlap
+E   AssertionError: assert 552 <= (400 + 50)
+E    +  where 552 = len('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA...BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB')
+---------------------------- Captured stdout setup ----------------------------
+2026-05-21 13:12:22,901 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:22,901 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tasks")
+2026-05-21 13:12:22,902 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,902 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("steps")
+2026-05-21 13:12:22,902 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,903 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("agent_states")
+2026-05-21 13:12:22,903 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,903 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-21 13:12:22,903 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,904 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("memories")
+2026-05-21 13:12:22,904 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:22,905 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("tasks")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("steps")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("agent_states")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("memories")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+_____________________ TestAugmentPrompt.test_with_results _____________________
+tests\unit\test_rag_system.py:667: in test_with_results
+    assert "参考知识" in result
+E   AssertionError: assert '参考知识' in '如何配置 API Key'
+---------------------------- Captured stdout setup ----------------------------
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tasks")
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("steps")
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("agent_states")
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("memories")
+2026-05-21 13:12:23,725 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,729 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("tasks")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("steps")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("agent_states")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("memories")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+---------------------------- Captured stdout call -----------------------------
+2026-05-21 13:12:23,731 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,731 INFO sqlalchemy.engine.Engine INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+2026-05-21 13:12:23,731 INFO sqlalchemy.engine.Engine [cached since 0.7226s ago] ('108fa985-e7dd-443a-a059-e8b6e60d316d', 'API Key 需要配置在 .env 文件中', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:23.730107', '{"_rag_type": "doc_chunk", "doc_id": "doc1", "chunk_index": 0}')
+2026-05-21 13:12:23,732 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-21 13:12:23,741 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,742 INFO sqlalchemy.engine.Engine SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+2026-05-21 13:12:23,742 INFO sqlalchemy.engine.Engine [generated in 0.00013s] ('long_term', '%如何配置%', '%API%', '%Key%', 10, 0)
+2026-05-21 13:12:23,743 INFO sqlalchemy.engine.Engine ROLLBACK
+------------------------------ Captured log call ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.7226s ago] ('108fa985-e7dd-443a-a059-e8b6e60d316d', 'API Key 需要配置在 .env 文件中', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:23.730107', '{"_rag_type": "doc_chunk", "doc_id": "doc1", "chunk_index": 0}')
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [generated in 0.00013s] ('long_term', '%如何配置%', '%API%', '%Key%', 10, 0)
+INFO     sqlalchemy.engine.Engine:base.py:2692 ROLLBACK
+_______________ TestAugmentPrompt.test_with_results_and_context _______________
+tests\unit\test_rag_system.py:692: in test_with_results_and_context
+    assert "参考知识" in result
+E   AssertionError: assert '参考知识' in '连接数据库'
+---------------------------- Captured stdout setup ----------------------------
+2026-05-21 13:12:23,821 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,821 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tasks")
+2026-05-21 13:12:23,822 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,827 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("steps")
+2026-05-21 13:12:23,828 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,830 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("agent_states")
+2026-05-21 13:12:23,833 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,836 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-21 13:12:23,837 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,840 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("memories")
+2026-05-21 13:12:23,840 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,841 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("tasks")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("steps")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("agent_states")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("memories")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+---------------------------- Captured stdout call -----------------------------
+2026-05-21 13:12:23,849 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,849 INFO sqlalchemy.engine.Engine INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+2026-05-21 13:12:23,853 INFO sqlalchemy.engine.Engine [cached since 0.845s ago] ('01d12310-d3e7-4f0a-8af2-aa00f4e021ab', '数据库连接字符串在配置文件中', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:23.845509', '{"_rag_type": "doc_chunk", "doc_id": "doc1", "chunk_index": 0}')
+2026-05-21 13:12:23,858 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-21 13:12:23,879 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,879 INFO sqlalchemy.engine.Engine SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+2026-05-21 13:12:23,879 INFO sqlalchemy.engine.Engine [cached since 0.3992s ago] ('long_term', '%连接数据库%', 10, 0)
+2026-05-21 13:12:23,883 INFO sqlalchemy.engine.Engine ROLLBACK
+------------------------------ Captured log call ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.845s ago] ('01d12310-d3e7-4f0a-8af2-aa00f4e021ab', '数据库连接字符串在配置文件中', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:23.845509', '{"_rag_type": "doc_chunk", "doc_id": "doc1", "chunk_index": 0}')
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.3992s ago] ('long_term', '%连接数据库%', 10, 0)
+INFO     sqlalchemy.engine.Engine:base.py:2692 ROLLBACK
+____________________ TestAugmentPrompt.test_prompt_format _____________________
+tests\unit\test_rag_system.py:709: in test_prompt_format
+    assert lines[0] == "你是一个知识库助手。请根据以下参考知识回答用户的问题。"
+E   AssertionError: assert '测试查询' == '你是一个知识库助手。请根据以下参考知识回答用户的问题。'
+E     - 你是一个知识库助手。请根据以下参考知识回答用户的问题。
+E     + 测试查询
+---------------------------- Captured stdout setup ----------------------------
+2026-05-21 13:12:23,937 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,937 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tasks")
+2026-05-21 13:12:23,937 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,941 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("steps")
+2026-05-21 13:12:23,941 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,948 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("agent_states")
+2026-05-21 13:12:23,949 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,950 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-21 13:12:23,950 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,957 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("memories")
+2026-05-21 13:12:23,957 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:23,960 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("tasks")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("steps")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("agent_states")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("memories")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+---------------------------- Captured stdout call -----------------------------
+2026-05-21 13:12:23,970 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:23,970 INFO sqlalchemy.engine.Engine INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+2026-05-21 13:12:23,970 INFO sqlalchemy.engine.Engine [cached since 0.9657s ago] ('8ce9bbef-94c8-495f-aa6c-4c751eeaddc6', '测试知识内容', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:23.962310', '{"_rag_type": "doc_chunk", "doc_id": "doc1", "chunk_index": 0}')
+2026-05-21 13:12:23,982 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-21 13:12:23,999 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:24,004 INFO sqlalchemy.engine.Engine SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+2026-05-21 13:12:24,004 INFO sqlalchemy.engine.Engine [cached since 0.5243s ago] ('long_term', '%测试查询%', 10, 0)
+2026-05-21 13:12:24,008 INFO sqlalchemy.engine.Engine ROLLBACK
+------------------------------ Captured log call ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.9657s ago] ('8ce9bbef-94c8-495f-aa6c-4c751eeaddc6', '测试知识内容', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:23.962310', '{"_rag_type": "doc_chunk", "doc_id": "doc1", "chunk_index": 0}')
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.5243s ago] ('long_term', '%测试查询%', 10, 0)
+INFO     sqlalchemy.engine.Engine:base.py:2692 ROLLBACK
+_____________________ TestIntegration.test_full_pipeline ______________________
+tests\unit\test_rag_system.py:794: in test_full_pipeline
+    assert "参考知识" in prompt
+E   AssertionError: assert '参考知识' in 'ChromaDB 的作用是什么？'
+---------------------------- Captured stdout setup ----------------------------
+2026-05-21 13:12:24,220 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:24,222 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tasks")
+2026-05-21 13:12:24,223 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:24,225 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("steps")
+2026-05-21 13:12:24,229 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:24,233 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("agent_states")
+2026-05-21 13:12:24,233 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:24,235 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-05-21 13:12:24,236 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:24,239 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("memories")
+2026-05-21 13:12:24,239 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-05-21 13:12:24,241 INFO sqlalchemy.engine.Engine COMMIT
+----------------------------- Captured log setup ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("tasks")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("steps")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("agent_states")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("users")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:1848 PRAGMA main.table_info("memories")
+INFO     sqlalchemy.engine.Engine:base.py:1848 [raw sql] ()
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+---------------------------- Captured stdout call -----------------------------
+2026-05-21 13:12:24,254 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:24,254 INFO sqlalchemy.engine.Engine INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+2026-05-21 13:12:24,254 INFO sqlalchemy.engine.Engine [cached since 1.248s ago] ('e996d592-7fd6-4bdb-9ca8-8c8fbdecd40d', 'AgentForge 使用 MemoryManager 管理三层记忆系统。\n短期记忆使用内存 FIFO 队列。\n长期记忆使用 ChromaDB 向量数据库。\nChromaDB 不可用时降级到 SQLite。\nRAG 系统复用 MemoryManager 的向量存储。', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:24.251469', '{"_rag_type": "doc_chunk", "doc_id": "22444d791313", "chunk_index": 0, "doc_source": "C:\\\\Users\\\\lenovo\\\\AppData\\\\Local\\\\Temp\\\\tmpveo4ftub.txt", "doc_type": "txt", "chunk_id": "22444d791313:chunk_0"}')
+2026-05-21 13:12:24,272 INFO sqlalchemy.engine.Engine COMMIT
+2026-05-21 13:12:24,284 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:24,284 INFO sqlalchemy.engine.Engine SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+2026-05-21 13:12:24,284 INFO sqlalchemy.engine.Engine [cached since 0.5732s ago] ('long_term', '%ChromaDB%', '%向量数据库%', 6, 0)
+2026-05-21 13:12:24,294 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-05-21 13:12:24,310 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-05-21 13:12:24,310 INFO sqlalchemy.engine.Engine SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+2026-05-21 13:12:24,310 INFO sqlalchemy.engine.Engine [cached since 0.5927s ago] ('long_term', '%ChromaDB%', '%的作用是什么？%', 6, 0)
+2026-05-21 13:12:24,319 INFO sqlalchemy.engine.Engine ROLLBACK
+------------------------------ Captured log call ------------------------------
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 INSERT INTO memories (id, content, memory_type, agent_id, agent_role, task_id, source, created_at, metadata_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 1.248s ago] ('e996d592-7fd6-4bdb-9ca8-8c8fbdecd40d', 'AgentForge 使用 MemoryManager 管理三层记忆系统。\n短期记忆使用内存 FIFO 队列。\n长期记忆使用 ChromaDB 向量数据库。\nChromaDB 不可用时降级到 SQLite。\nRAG 系统复用 MemoryManager 的向量存储。', 'long_term', None, 'rag_system', None, None, '2026-05-21 05:12:24.251469', '{"_rag_type": "doc_chunk", "doc_id": "22444d791313", "chunk_index": 0, "doc_source": "C:\\\\Users\\\\lenovo\\\\AppData\\\\Local\\\\Temp\\\\tmpveo4ftub.txt", "doc_type": "txt", "chunk_id": "22444d791313:chunk_0"}')
+INFO     sqlalchemy.engine.Engine:base.py:2695 COMMIT
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.5732s ago] ('long_term', '%ChromaDB%', '%向量数据库%', 6, 0)
+INFO     sqlalchemy.engine.Engine:base.py:2692 ROLLBACK
+INFO     sqlalchemy.engine.Engine:base.py:2689 BEGIN (implicit)
+INFO     sqlalchemy.engine.Engine:base.py:1848 SELECT memories.id, memories.content, memories.memory_type, memories.agent_id, memories.agent_role, memories.task_id, memories.source, memories.created_at, memories.metadata_json 
+FROM memories 
+WHERE memories.memory_type = ? AND lower(memories.content) LIKE lower(?) AND lower(memories.content) LIKE lower(?) ORDER BY memories.created_at DESC
+ LIMIT ? OFFSET ?
+INFO     sqlalchemy.engine.Engine:base.py:1848 [cached since 0.5927s ago] ('long_term', '%ChromaDB%', '%的作用是什么？%', 6, 0)
+INFO     sqlalchemy.engine.Engine:base.py:2692 ROLLBACK
+============================== warnings summary ===============================
+..\..\Anaconda\envs\agentforge\Lib\site-packages\PyPDF2\__init__.py:21
+  D:\Anaconda\envs\agentforge\Lib\site-packages\PyPDF2\__init__.py:21: DeprecationWarning: PyPDF2 is deprecated. Please move to the pypdf library instead.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/unit/test_rag_system.py::TestChunkText::test_empty_text - Assert...
+FAILED tests/unit/test_rag_system.py::TestChunkText::test_paragraph_boundary
+FAILED tests/unit/test_rag_system.py::TestAugmentPrompt::test_with_results - ...
+FAILED tests/unit/test_rag_system.py::TestAugmentPrompt::test_with_results_and_context
+FAILED tests/unit/test_rag_system.py::TestAugmentPrompt::test_prompt_format
+FAILED tests/unit/test_rag_system.py::TestIntegration::test_full_pipeline - A...
+=================== 6 failed, 50 passed, 1 warning in 2.64s ===================

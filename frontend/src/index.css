@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== AgentForge 全局基础样式 ===== */
+
+@layer base {
+  :root {
+    --forge-50:  #eef2ff;
+    --forge-500: #1a3fff;
+    --forge-700: #091aa3;
+    --forge-900: #101a6e;
+    --forge-950: #0a0f48;
+    --accent:    #aa3bff;
+    --accent-light: #c084fc;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply m-0 font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 滚动条 - 深色主题 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+    background: rgba(255, 255, 255, 0.12);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+}
+
+@layer components {
+  /* 面板卡片 */
+  .forge-card {
+    @apply rounded-forge border border-surface-border bg-surface-light p-6 transition-shadow duration-200;
+  }
+  .forge-card:hover {
+    @apply shadow-forge;
+  }
+
+  /* 渐变按钮 */
+  .forge-btn-primary {
+    @apply rounded-forge bg-forge-500 px-5 py-2.5 text-sm font-medium text-white
+           transition-all duration-200 hover:bg-forge-700 active:scale-[0.98];
+  }
+
+  .forge-btn-ghost {
+    @apply rounded-forge px-4 py-2 text-sm font-medium
+           text-neutral-400 transition-colors duration-200 hover:bg-white/5 hover:text-white;
+  }
+
+  /* 状态徽标 */
+  .forge-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+@layer utilities {
+  /* 文字截断 */
+  .text-truncate {
+    @apply overflow-hidden text-ellipsis whitespace-nowrap;
+  }
+}

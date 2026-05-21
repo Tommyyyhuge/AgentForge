@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# 开发工具
+jupyter==1.0.0
+ipython==8.17.2
+
+# 调试
+pdbpp==0.10.3
