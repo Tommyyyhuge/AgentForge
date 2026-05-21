@@ -1,4 +1,4 @@
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useCallback, useEffect, type FormEvent } from 'react'
 import {
   Key,
   Moon,
@@ -7,8 +7,6 @@ import {
   Sliders,
   CheckCircle2,
   AlertCircle,
-  Eye,
-  EyeOff,
   Save,
   RotateCcw,
   LogIn,
@@ -18,8 +16,14 @@ import {
   Mail,
   Lock,
   Shield,
+  Plus,
+  Trash2,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import { useTheme } from '../hooks/useTheme'
+import apiClient from '../api/client'
+import Modal from '../components/ui/Modal'
+import Button from '../components/ui/Button'
 
 // ============================================================
 // 本地类型
@@ -90,10 +94,11 @@ function saveSettings(data: SettingsData): void {
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsData>(loadSettings)
-  const [showKimiKey, setShowKimiKey] = useState(false)
-  const [showDeepseekKey, setShowDeepseekKey] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [statusMessage, setStatusMessage] = useState('')
+
+  // ===== 主题状态 =====
+  const { theme: currentTheme, setTheme } = useTheme()
 
   // ===== 认证状态 =====
   const {
@@ -145,7 +150,11 @@ export default function Settings() {
   // 更新单个设置字段
   const updateSetting = useCallback(<K extends keyof SettingsData>(key: K, value: SettingsData[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
-  }, [])
+    // 同步更新主题
+    if (key === 'theme') {
+      setTheme(value as 'light' | 'dark' | 'system')
+    }
+  }, [setTheme])
 
   // 保存设置
   const handleSave = useCallback((e?: FormEvent) => {
@@ -169,12 +178,7 @@ export default function Settings() {
     setTimeout(() => { setSaveStatus('idle'); setStatusMessage('') }, 2500)
   }, [])
 
-  // 遮罩 API Key（中间部分显示为 *）
-  const maskKey = (key: string): string => {
-    if (!key) return ''
-    if (key.length <= 12) return key
-    return key.slice(0, 6) + '•'.repeat(Math.min(key.length - 12, 20)) + key.slice(-6)
-  }
+  // 遮罩 API Key 已由服务端加密 API 替代，不再需要客户端处理
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 animate-slide-up">
@@ -183,8 +187,6 @@ export default function Settings() {
         <h2 className="text-2xl font-bold tracking-tight text-white">系统设置</h2>
         <p className="mt-1 text-sm text-neutral-400">管理 API Key、主题和日志级别</p>
       </div>
-
-      {/* ======== 认证模块 ======== */}
       <section className="forge-card !bg-surface-dark space-y-5">
         <div className="flex items-center gap-2.5">
           <Shield className="h-5 w-5 text-forge-400" />
@@ -354,82 +356,12 @@ export default function Settings() {
       </section>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* ======== API Key 配置 ======== */}
-        <section className="forge-card !bg-surface-dark space-y-5">
-          <div className="flex items-center gap-2.5">
-            <Key className="h-5 w-5 text-forge-400" />
-            <h3 className="text-base font-semibold text-white">API Key</h3>
-          </div>
-
-          {/* Kimi API Key */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-neutral-300">Kimi API Key</label>
-            <div className="relative">
-              <input
-                type={showKimiKey ? 'text' : 'password'}
-                value={settings.kimiApiKey}
-                onChange={(e) => updateSetting('kimiApiKey', e.target.value)}
-                placeholder="sk-..."
-                className="w-full rounded-forge border border-surface-border
-                           bg-white/[0.03] py-2 pl-3 pr-10 text-sm text-white
-                           placeholder:text-neutral-600 font-mono
-                           outline-none transition-colors
-                           focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKimiKey((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500
-                           transition-colors hover:text-neutral-300"
-              >
-                {showKimiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {settings.kimiApiKey && !showKimiKey && (
-              <p className="text-xs text-neutral-600 font-mono">{maskKey(settings.kimiApiKey)}</p>
-            )}
-          </div>
-
-          {/* DeepSeek API Key */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-neutral-300">DeepSeek API Key</label>
-            <div className="relative">
-              <input
-                type={showDeepseekKey ? 'text' : 'password'}
-                value={settings.deepseekApiKey}
-                onChange={(e) => updateSetting('deepseekApiKey', e.target.value)}
-                placeholder="sk-..."
-                className="w-full rounded-forge border border-surface-border
-                           bg-white/[0.03] py-2 pl-3 pr-10 text-sm text-white
-                           placeholder:text-neutral-600 font-mono
-                           outline-none transition-colors
-                           focus:border-forge-500/40 focus:ring-1 focus:ring-forge-500/20"
-              />
-              <button
-                type="button"
-                onClick={() => setShowDeepseekKey((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500
-                           transition-colors hover:text-neutral-300"
-              >
-                {showDeepseekKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {settings.deepseekApiKey && !showDeepseekKey && (
-              <p className="text-xs text-neutral-600 font-mono">{maskKey(settings.deepseekApiKey)}</p>
-            )}
-          </div>
-
-          <p className="text-xs text-neutral-600">
-            API Key 仅保存在浏览器本地存储中，不会上传到服务器。
-          </p>
-        </section>
-
-        {/* ======== 主题设置 ======== */}
+        <APIKeySection />
         <section className="forge-card !bg-surface-dark space-y-4">
           <div className="flex items-center gap-2.5">
-            {settings.theme === 'dark' ? (
+            {currentTheme === 'dark' ? (
               <Moon className="h-5 w-5 text-forge-400" />
-            ) : settings.theme === 'light' ? (
+            ) : currentTheme === 'light' ? (
               <Sun className="h-5 w-5 text-forge-400" />
             ) : (
               <Monitor className="h-5 w-5 text-forge-400" />
@@ -446,7 +378,7 @@ export default function Settings() {
                 className={`
                   flex flex-col items-center gap-2 rounded-forge border px-4 py-3 text-sm
                   transition-all duration-200
-                  ${settings.theme === opt.value
+                  ${currentTheme === opt.value
                     ? 'border-forge-500/40 bg-forge-500/10 text-forge-400'
                     : 'border-surface-border bg-white/[0.02] text-neutral-400 hover:border-surface-border/60 hover:text-neutral-300'
                   }
@@ -458,8 +390,6 @@ export default function Settings() {
             ))}
           </div>
         </section>
-
-        {/* ======== 日志级别 ======== */}
         <section className="forge-card !bg-surface-dark space-y-4">
           <div className="flex items-center gap-2.5">
             <Sliders className="h-5 w-5 text-forge-400" />
@@ -497,8 +427,6 @@ export default function Settings() {
             ))}
           </div>
         </section>
-
-        {/* ======== 操作按钮 ======== */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* 保存状态提示 */}
           <div className="flex items-center gap-2">
@@ -537,5 +465,186 @@ export default function Settings() {
         </div>
       </form>
     </div>
+  )
+}
+
+// ============================================================
+// API Key 管理组件
+// ============================================================
+
+interface ServerKey {
+  id: string
+  provider: string
+  masked_key: string
+  permission: string
+  usage_count: number
+  created_at: string
+}
+
+function APIKeySection() {
+  const [keys, setKeys] = useState<ServerKey[]>([])
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ provider: 'kimi', api_key: '', permission: 'write' })
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    loadKeys()
+  }, [])
+
+  async function loadKeys() {
+    try {
+      const res = await apiClient.get<{ data: ServerKey[] }>('/keys')
+      setKeys(res.data.data || [])
+    } catch {
+      // 后端不可用时静默处理
+    }
+  }
+
+  async function handleAdd() {
+    setError('')
+    if (!form.api_key.trim()) {
+      setError('请输入 API Key')
+      return
+    }
+    setIsLoading(true)
+    try {
+      await apiClient.post('/keys', form)
+      await loadKeys()
+      setShowAdd(false)
+      setForm({ provider: 'kimi', api_key: '', permission: 'write' })
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || '添加失败')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await apiClient.delete(`/keys/${id}`)
+      setKeys((prev) => prev.filter((k) => k.id !== id))
+    } catch {
+      // 静默处理
+    }
+  }
+
+  const providerLabel: Record<string, string> = {
+    kimi: 'Kimi (Moonshot)',
+    deepseek: 'DeepSeek',
+  }
+
+  return (
+    <section className="forge-card !bg-surface-dark space-y-4">
+      <div className="flex items-center gap-2.5">
+        <Key className="h-5 w-5 text-forge-400" />
+        <h3 className="text-base font-semibold text-white">API 密钥管理</h3>
+      </div>
+
+      <p className="text-xs text-neutral-500">
+        API Key 采用 AES-128-CBC 加密存储在服务器，使用前自动解密。
+      </p>
+
+      {/* 已存 Key 列表 */}
+      {keys.length > 0 ? (
+        <div className="space-y-2">
+          {keys.map((key) => (
+            <div
+              key={key.id}
+              className="flex items-center justify-between rounded-forge border border-surface-border px-4 py-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-white">
+                  {providerLabel[key.provider] || key.provider}
+                </p>
+                <p className="text-xs text-neutral-400 font-mono">{key.masked_key}</p>
+                <p className="mt-0.5 text-[11px] text-neutral-500">
+                  {key.permission} · 已用 {key.usage_count} 次
+                </p>
+              </div>
+              <button
+                onClick={() => handleDelete(key.id)}
+                className="ml-3 shrink-0 rounded p-1.5 text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-neutral-500">暂无存储的 API Key</p>
+      )}
+
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setShowAdd(true)}
+        leftIcon={<Plus className="h-4 w-4" />}
+      >
+        添加 API Key
+      </Button>
+
+      {/* 添加 Key 模态框 */}
+      <Modal
+        isOpen={showAdd}
+        onClose={() => { setShowAdd(false); setError('') }}
+        title="添加 API Key"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-neutral-300">提供商</label>
+            <select
+              value={form.provider}
+              onChange={(e) => setForm((f) => ({ ...f, provider: e.target.value }))}
+              className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white outline-none focus:border-forge-500"
+            >
+              <option value="kimi">Kimi (Moonshot)</option>
+              <option value="deepseek">DeepSeek</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-neutral-300">API Key</label>
+            <input
+              type="password"
+              value={form.api_key}
+              onChange={(e) => setForm((f) => ({ ...f, api_key: e.target.value }))}
+              placeholder="sk-..."
+              className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white font-mono placeholder-neutral-500 outline-none focus:border-forge-500"
+            />
+            <p className="mt-1 text-[11px] text-neutral-500">
+              密钥使用 AES-128-CBC 加密后才存储，无法被明文读取。
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-neutral-300">权限</label>
+            <select
+              value={form.permission}
+              onChange={(e) => setForm((f) => ({ ...f, permission: e.target.value }))}
+              className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white outline-none focus:border-forge-500"
+            >
+              <option value="write">write — 可用于 LLM 调用</option>
+              <option value="read">read — 仅查看</option>
+              <option value="admin">admin — 可管理</option>
+            </select>
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-400">{error}</p>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => { setShowAdd(false); setError('') }}>
+              取消
+            </Button>
+            <Button variant="primary" onClick={handleAdd} isLoading={isLoading}>
+              保存
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </section>
   )
 }

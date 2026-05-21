@@ -48,7 +48,7 @@ class ReviewerAgent(BaseAgent):
             "请严格审查，找出所有问题。"
         )
 
-    async def execute(
+    async def execute(  # type: ignore[override]
         self,
         task: Any,
         context: Optional[str] = None,

@@ -15,4 +15,40 @@ export default defineConfig({
       },
     },
   },
+
+  // 代码分割优化
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id: string) => {
+          // React 核心库
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) {
+            return 'vendor'
+          }
+          // 状态管理 + HTTP 客户端
+          if (id.includes('node_modules/zustand') || id.includes('node_modules/axios')) {
+            return 'state'
+          }
+          // 图表库
+          if (id.includes('node_modules/recharts')) {
+            return 'charts'
+          }
+          // 流程图库
+          if (id.includes('node_modules/reactflow')) {
+            return 'flow'
+          }
+          // 动画库
+          if (id.includes('node_modules/framer-motion')) {
+            return 'animation'
+          }
+          // Lucide 图标库
+          if (id.includes('node_modules/lucide-react')) {
+            return 'icons'
+          }
+        },
+      },
+    },
+    // 调整 chunk 大小警告限制
+    chunkSizeWarningLimit: 600,
+  },
 })

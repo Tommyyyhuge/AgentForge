@@ -71,7 +71,7 @@ class CoderAgent(BaseAgent):
         )
         return base_prompt
 
-    async def execute(
+    async def execute(  # type: ignore[override]
         self,
         task: Any,
         context: Optional[str] = None,

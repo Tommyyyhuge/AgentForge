@@ -17,10 +17,6 @@ from agent_forge.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-# =============================================================================
-# 数据模型
-# =============================================================================
-
 
 @dataclass
 class ReflectionReport:
@@ -73,10 +69,6 @@ class ReflectionReport:
             else datetime.now(timezone.utc),
         )
 
-
-# =============================================================================
-# 反思引擎
-# =============================================================================
 
 
 class ReflectionEngine:
@@ -347,7 +339,7 @@ class ReflectionEngine:
 
         raw_response = ""
         try:
-            response = await self.llm_router.chat([
+            response = await self.llm_router.chat([  # type: ignore[attr-defined]
                 {"role": "system", "content": self.REFLECTION_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ])

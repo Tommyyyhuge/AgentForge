@@ -117,6 +117,8 @@ class MemorySearchTool(BaseTool):
         Returns:
             格式化搜索结果
         """
+        if not self.rag_system:
+            return "RAG 系统未初始化"
         try:
             chunks = await self.rag_system.retrieve(
                 query=query,

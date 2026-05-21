@@ -41,10 +41,6 @@ class StepType(str, Enum):
     ERROR = "error"
 
 
-# ============================================
-# 核心数据模型
-# ============================================
-
 
 class Task(BaseModel):
     """任务模型"""
@@ -123,10 +119,6 @@ class PlanNode(BaseModel):
     actual_duration: Optional[int] = None
     output: Optional[str] = None
 
-
-# ============================================
-# 认证相关模型
-# ============================================
 
 
 class UserCreate(BaseModel):

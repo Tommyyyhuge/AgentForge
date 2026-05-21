@@ -84,36 +84,106 @@ npm install
 npm run dev
 ```
 
-### 7. Docker 一键启动
+### 7. Docker 一键启动（推荐）
 
 ```bash
-# 本地开发
-docker-compose up
+# 克隆项目
+git clone https://github.com/yourname/agentforge.git
+cd agentforge
 
-# 生产部署
-./scripts/deploy.sh production
+# 配置环境变量（可选，有默认值）
+cp .env.example .env
+
+# 一键启动全部服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止
+docker-compose down
+```
+
+访问地址：
+- 前端：http://localhost:3000
+- 后端 API 文档：http://localhost:8000/docs
+- PostgreSQL：localhost:5432
+- ChromaDB：localhost:8001
+
+### 8. 环境变量说明
+
+| 变量 | 必填 | 默认值 | 说明 |
+|------|------|--------|------|
+| `ENVIRONMENT` | 否 | `development` | 运行环境 |
+| `DB_TYPE` | 否 | `sqlite` | 数据库类型（sqlite / postgresql） |
+| `DATABASE_URL` | 是* | `sqlite:///data/agentforge.db` | 数据库连接字符串 |
+| `JWT_SECRET_KEY` | **是** | — | JWT 签名密钥，`openssl rand -hex 32` |
+| `ENCRYPTION_KEY` | **是** | — | API Key 加密主密钥 |
+| `ENCRYPTION_SALT` | 否 | `agentforge-salt` | PBKDF2 盐值 |
+| `KIMI_API_KEY` | 否 | — | Kimi (Moonshot) API Key |
+| `DEEPSEEK_API_KEY` | 否 | — | DeepSeek API Key |
+| `CHROMA_PERSIST_DIR` | 否 | `./data/chromadb` | 向量数据库目录 |
+| `REDIS_URL` | 否 | `redis://localhost:6379` | Redis 缓存地址 |
+
+> *生产环境需配置 PostgreSQL；开发环境默认使用 SQLite 无需配置。
+
+### 9. 架构图
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    Nginx (Frontend)                  │
+│                   localhost:3000                     │
+│          React 19 + Vite + Tailwind CSS              │
+└──────────────┬──────────────────────────────────────┘
+               │  /api/* 代理
+┌──────────────▼──────────────────────────────────────┐
+│                  FastAPI (Backend)                   │
+│                   localhost:8000                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+│  │ ReAct引擎 │ │ Planner  │ │A2A 总线  │            │
+│  └──────────┘ └──────────┘ └──────────┘            │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
+│  │Reflection│ │   RAG    │ │ Memory   │            │
+│  └──────────┘ └──────────┘ └──────────┘            │
+└──┬────────────┬──────────────┬──────────────────────┘
+   │            │              │
+┌──▼──┐  ┌─────▼─────┐  ┌────▼─────┐
+│PG 16│  │ ChromaDB  │  │  Redis   │
+│5432 │  │   8001    │  │   6379   │
+└─────┘  └───────────┘  └──────────┘
 ```
 
 ## 项目结构
 
 ```
 AgentForge/
-├── backend/              # 后端代码
-│   ├── agent_forge/      # 主包
-│   │   ├── core/         # 核心引擎
-│   │   ├── agents/       # Agent 角色
-│   │   ├── tools/        # MCP 工具
-│   │   ├── models/       # 数据模型
-│   │   ├── api/          # API 路由
-│   │   └── ...
-│   ├── tests/            # 测试
-│   └── requirements.txt  # 依赖
-├── frontend/             # 前端代码
-│   ├── src/              # 源码
-│   └── package.json      # 依赖
-├── docs/                 # 文档
-├── scripts/              # 脚本
-└── docker-compose.yml    # Docker 配置
+├── backend/                  # 后端代码
+│   ├── agent_forge/          # 主包
+│   │   ├── core/             # ReAct, Planner, A2A, RAG, Memory, LLM
+│   │   ├── agents/           # 6 个 Agent 角色 + Factory
+│   │   ├── tools/            # 8 个 MCP 工具
+│   │   ├── mcp/              # 工具注册协议
+│   │   ├── api/              # REST API（tasks/agents/auth/keys/metrics）
+│   │   ├── database/         # ORM 模型 + 连接
+│   │   ├── config/           # 配置管理
+│   │   └── utils/            # 日志 + 加密
+│   ├── tests/            # 387 个后端测试
+│   ├── main.py               # 入口
+│   └── requirements.txt
+├── frontend/                 # 前端代码
+│   ├── src/
+│   │   ├── pages/            # Dashboard, Tasks, AgentMonitor, Chat, Settings, Login, Register
+│   │   ├── components/       # UI/Flow/Charts/Auth 组件
+│   │   ├── stores/           # Zustand 状态管理
+│   │   ├── hooks/            # useTheme, useToastManager
+│   │   └── api/              # Axios 客户端 + SSE
+│   ├── tests/                # 38 个测试
+│   └── Dockerfile
+├── docs/                     # 设计文档 + 实施计划
+├── docker-compose.yml        # 一键启动
+├── Dockerfile                # 后端镜像
+├── nginx.conf                # 前端 Nginx 配置
+└── Makefile                  # 开发命令
 ```
 
 ## 文档

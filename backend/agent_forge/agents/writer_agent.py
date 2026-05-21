@@ -47,7 +47,7 @@ class WriterAgent(BaseAgent):
             "请根据需求完成写作任务。"
         )
 
-    async def execute(
+    async def execute(  # type: ignore[override]
         self,
         task: Any,
         context: Optional[str] = None,

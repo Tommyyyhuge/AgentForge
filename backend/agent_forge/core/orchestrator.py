@@ -256,7 +256,7 @@ class Orchestrator:
 
         # --- 执行体：收集 Agent 产出的每一步 ---
         async def _run_agent() -> None:
-            async for step in agent.execute(
+            async for step in agent.execute(  # type: ignore[attr-defined]
                 task=task,
                 context=None,
                 cancellation_token=cancellation_token,
@@ -372,7 +372,7 @@ class Orchestrator:
                     [],
                 ))
             else:
-                processed.append(item)
+                processed.append(item)  # type: ignore[arg-type]
 
         return processed
 

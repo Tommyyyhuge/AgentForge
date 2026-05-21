@@ -131,8 +131,8 @@ class CalculatorTool(BaseTool):
 
         # 一元运算 (+, - 前缀)
         if isinstance(node, ast.UnaryOp):
-            op_type = type(node.op)
-            if op_type not in _ALLOWED_OPERATORS:
+            op_type_unary: type[ast.unaryop] = type(node.op)  # type: ignore[assignment]
+            if op_type_unary not in _ALLOWED_OPERATORS:
                 raise CalculatorSecurityError(
                     f"不支持的一元运算符: {type(node.op).__name__}"
                 )

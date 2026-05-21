@@ -1,16 +1,13 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, memo } from 'react'
 
 interface CardProps {
   children: ReactNode
-  /** 自定义 className */
   className?: string
-  /** 是否禁用 hover 阴影效果 */
   noHover?: boolean
-  /** 点击回调 */
   onClick?: () => void
 }
 
-export default function Card({ children, className = '', noHover = false, onClick }: CardProps) {
+function Card({ children, className = '', noHover = false, onClick }: CardProps) {
   return (
     <div
       className={`forge-card ${noHover ? '' : 'cursor-pointer'} ${className}`}
@@ -23,3 +20,5 @@ export default function Card({ children, className = '', noHover = false, onClic
     </div>
   )
 }
+
+export default memo(Card)

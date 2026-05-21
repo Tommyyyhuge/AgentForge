@@ -51,7 +51,7 @@ class BaseAgent(ABC):
             role=self.role,
             status="idle",
         )
-        self.memory: List[Dict[str, str]] = []
+        self.memory: List[str] = []
 
     @abstractmethod
     async def execute(

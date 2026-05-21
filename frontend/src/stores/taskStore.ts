@@ -297,7 +297,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         const task = MOCK_TASKS.find((t) => t.id === taskId) ?? null
         if (!task) {
           set({ isLoading: false, error: '任务未找到' })
-          throw new Error('任务未找到')
+          throw new Error('任务未找到', { cause: err })
         }
         const steps = MOCK_STEPS.filter((s) => s.taskId === taskId)
         set({ currentTask: task, steps, isLoading: false })

@@ -85,7 +85,7 @@ class AgentFactory:
 
         # 检查 Agent 是否支持 tool_registry 参数
         import inspect
-        init_params = inspect.signature(agent_class.__init__).parameters
+        init_params = inspect.signature(agent_class.__init__).parameters  # type: ignore[misc]
         if "tool_registry" in init_params:
             agent = agent_class(llm_router, tool_registry=tool_registry)
         else:

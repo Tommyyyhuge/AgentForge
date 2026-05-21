@@ -3,14 +3,14 @@ AgentForge 配置管理模块
 """
 from typing import Optional
 
-from pydantic import ConfigDict, Field, SecretStr
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, SecretStr
 
 
 class Settings(BaseSettings):
     """应用配置类，自动从 .env 文件加载"""
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
     )

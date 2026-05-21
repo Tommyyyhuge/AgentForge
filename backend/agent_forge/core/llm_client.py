@@ -280,6 +280,7 @@ class LLMRouter:
 
     管理多个 LLM 提供商，根据任务特征自动选择最佳模型。
     支持故障转移和负载均衡。
+    支持从 APIKeyManager 动态加载加密存储的 API Key。
     """
 
     # 复杂度 -> 推荐模型映射
@@ -289,10 +290,44 @@ class LLMRouter:
         "complex": ["moonshot-v1-128k", "deepseek-coder"],
     }
 
-    def __init__(self):
+    def __init__(self, api_key_manager=None):
         self.providers: Dict[str, BaseLLMProvider] = {}
         self.fallback_chain: List[str] = []
+        self._api_key_manager = api_key_manager  # 可选，从加密存储获取 Key
         self._setup_default_providers()
+
+    async def refresh_from_manager(self, user_id: Optional[str] = None, db=None):
+        """从 APIKeyManager 刷新提供商（使用加密存储的 Key）
+
+        如果 APIKeyManager 可用且数据库中有 Key，则用加密存储的 Key
+        替换 settings 中的 Key。settings 中的 Key 作为兜底。
+
+        Args:
+            user_id: 可选，限定用户
+            db: 数据库会话
+        """
+        if not self._api_key_manager or not db:
+            return
+
+        from agent_forge.core.api_key_manager import APIKeyManager
+        keys = await self._api_key_manager.get_all_keys(db, user_id)
+
+        for provider_name, api_key in keys.items():
+            if provider_name == "kimi" and api_key:
+                kimi = KimiProvider(
+                    api_key=api_key, base_url=settings.KIMI_BASE_URL
+                )
+                self.register_provider("kimi", kimi)
+                logger.info("从加密存储加载 Kimi API Key")
+
+            elif provider_name == "deepseek" and api_key:
+                deepseek = DeepSeekProvider(
+                    api_key=api_key, base_url=settings.DEEPSEEK_BASE_URL
+                )
+                self.register_provider("deepseek", deepseek)
+                logger.info("从加密存储加载 DeepSeek API Key")
+
+        self._api_key_manager.clear_cache()
 
     def _setup_default_providers(self):
         """设置默认提供商"""
@@ -400,7 +435,7 @@ class LLMRouter:
         if not model and complexity in self.COMPLEXITY_MODELS:
             model = self.COMPLEXITY_MODELS[complexity][0]
 
-        async for chunk in llm_provider.chat_stream(
+        async for chunk in llm_provider.chat_stream(  # type: ignore[attr-defined]
             messages=messages, model=model, **kwargs
         ):
             yield chunk

@@ -345,7 +345,7 @@ class MemoryManager:
         # 优先 ChromaDB
         if self._init_chroma():
             try:
-                self._chroma_collection.add(
+                self._chroma_collection.add(  # type: ignore[attr-defined]
                     ids=[entry.id],
                     documents=[content],
                     metadatas=[{
@@ -436,14 +436,14 @@ class MemoryManager:
             where = {"agent_role": agent_role}
 
         if query_embedding:
-            results = self._chroma_collection.query(
+            results = self._chroma_collection.query(  # type: ignore[attr-defined]
                 query_embeddings=[query_embedding],
                 n_results=limit,
                 where=where,
             )
         else:
             # 无嵌入时按文本搜索
-            results = self._chroma_collection.query(
+            results = self._chroma_collection.query(  # type: ignore[attr-defined]
                 query_texts=[query],
                 n_results=limit,
                 where=where,
@@ -524,7 +524,7 @@ class MemoryManager:
         # 优先 ChromaDB
         if self._init_chroma():
             try:
-                results = self._chroma_collection.get(
+                results = self._chroma_collection.get(  # type: ignore[attr-defined]
                     where={"task_id": task_id}
                 )
                 if results and results["ids"]:

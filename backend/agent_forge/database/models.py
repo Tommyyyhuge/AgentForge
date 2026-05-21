@@ -10,6 +10,7 @@ AgentForge ORM 模型定义
 """
 from datetime import datetime, timezone
 from typing import Optional, List
+import uuid
 
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -128,6 +129,11 @@ class UserORM(Base):
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
 
+    # 关联
+    api_keys: Mapped[List["APIKeyORM"]] = relationship(
+        "APIKeyORM", back_populates="user", cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return (
             f"<UserORM(id={self.id!r}, username={self.username!r}, "
@@ -167,4 +173,44 @@ class MemoryORM(Base):
         return (
             f"<MemoryORM(id={self.id!r}, type={self.memory_type!r}, "
             f"content_preview={self.content[:40]!r}...)>"
+        )
+
+
+class APIKeyORM(Base):
+    """API Key 加密存储 ORM 模型
+
+    存储用户上传的第三方 LLM API Key，使用 PBKDF2 + Fernet 加密。
+    支持权限分级：read（仅查看）、write（可调用 LLM）、admin（可管理）。
+    """
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(
+        String, nullable=False, comment="kimi / deepseek"
+    )
+    encrypted_key: Mapped[str] = mapped_column(
+        String, nullable=False, comment="PBKDF2 + Fernet 加密后的密文"
+    )
+    masked_key: Mapped[str] = mapped_column(
+        String, nullable=False, comment="前端展示的掩码格式：sk-****-abcd"
+    )
+    permission: Mapped[str] = mapped_column(
+        String, default="write", comment="read / write / admin"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    usage_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+
+    # 关联
+    user: Mapped["UserORM"] = relationship("UserORM", back_populates="api_keys")
+
+    def __repr__(self) -> str:
+        return (
+            f"<APIKeyORM(id={self.id!r}, provider={self.provider!r}, "
+            f"masked={self.masked_key!r})>"
         )

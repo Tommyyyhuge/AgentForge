@@ -1,0 +1,108 @@
+services:
+  # ============================================
+  # PostgreSQL 数据库
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentforge-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agentforge
+      POSTGRES_PASSWORD: agentforge
+      POSTGRES_DB: agentforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # ChromaDB 向量数据库
+  # ============================================
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: agentforge-chroma
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ============================================
+  # 后端 FastAPI
+  # ============================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agentforge-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DB_TYPE=postgresql
+      - DATABASE_URL=postgresql+asyncpg://agentforge:agentforge@postgres:5432/agentforge
+      # ⚠️ 生产环境必须覆盖以下两个密钥！
+      # 通过 .env 文件或环境变量设置：JWT_SECRET_KEY / ENCRYPTION_KEY
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?生产环境必须设置 JWT_SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?生产环境必须设置 ENCRYPTION_KEY}
+      - ENCRYPTION_SALT=${ENCRYPTION_SALT:-agentforge-salt}
+      - KIMI_API_KEY=${KIMI_API_KEY:-}
+      - KIMI_BASE_URL=https://api.moonshot.cn
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DEEPSEEK_BASE_URL=https://api.deepseek.com
+      - CHROMA_PERSIST_DIR=/data/chromadb
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chroma:
+        condition: service_healthy
+    volumes:
+      - backend_data:/app/data
+      - chroma_data:/data/chromadb  # ChromaDB 本地持久化
+
+  # ============================================
+  # 前端 Nginx
+  # ============================================
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: agentforge-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  # ============================================
+  # Redis 缓存
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: agentforge-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  chroma_data:
+  backend_data:
+  redis_data:

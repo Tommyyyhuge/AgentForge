@@ -75,7 +75,7 @@ class ExecutorAgent(BaseAgent):
             desc_lines.append(f"- {name}: {desc}")
         return "\n".join(desc_lines)
 
-    async def execute(
+    async def execute(  # type: ignore[override]
         self,
         task: Any,
         context: Optional[str] = None,

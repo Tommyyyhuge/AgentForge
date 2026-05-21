@@ -179,7 +179,6 @@ export default function Chat() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-6xl gap-0 overflow-hidden rounded-forge border border-surface-border animate-slide-up">
-      {/* ======== 左侧：对话列表 ======== */}
       <aside
         className={`
           flex w-60 shrink-0 flex-col border-r border-surface-border bg-surface-dark
@@ -234,8 +233,6 @@ export default function Chat() {
           </button>
         </div>
       </aside>
-
-      {/* ======== 右侧：聊天区域 ======== */}
       <div className="flex flex-1 flex-col bg-surface-dark">
         {/* 移动端返回按钮 */}
         {!mobileShowList && (

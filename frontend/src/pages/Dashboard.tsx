@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ListTodo,
@@ -8,9 +8,16 @@ import {
   Bot,
   ArrowRight,
   TrendingUp,
+  BarChart3,
+  Clock,
+  Cpu,
+  HardDrive,
 } from 'lucide-react'
 import { useTaskStore, STATUS_COLORS, STATUS_LABELS } from '../stores/taskStore'
 import { useAgentStore, AGENT_STATUS_COLORS, AGENT_STATUS_LABELS } from '../stores/agentStore'
+import TaskDurationChart from '../components/charts/TaskDurationChart'
+import AgentCallsChart from '../components/charts/AgentCallsChart'
+import apiClient from '../api/client'
 import type { Task } from '../types'
 import type { Agent } from '../types'
 
@@ -97,6 +104,9 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      {/* 性能图表 */}
+      <DashboardCharts />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* 快速操作 */}
@@ -235,6 +245,130 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ============================================================
+// 图表组件
+// ============================================================
+
+function DashboardCharts() {
+  const [taskMetrics, setTaskMetrics] = useState<{ time: string; duration: number; count: number }[]>([])
+  const [agentMetrics, setAgentMetrics] = useState<{ name: string; calls: number; avgDuration: number }[]>([])
+  const [sysMetrics, setSysMetrics] = useState({ cpuUsage: 0, memoryUsage: 0, activeTasks: 0, totalRequests: 0 })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchMetrics() {
+      try {
+        const [taskRes, agentRes, sysRes] = await Promise.all([
+          apiClient.get('/metrics/tasks?range_hours=24'),
+          apiClient.get('/metrics/agents'),
+          apiClient.get('/metrics/system'),
+        ])
+
+        // 任务指标
+        const td = taskRes.data as { timestamps: string[]; durations: number[]; counts: number[] }
+        setTaskMetrics(
+          td.timestamps.map((t, i) => ({
+            time: t,
+            duration: td.durations[i] || 0,
+            count: td.counts[i] || 0,
+          }))
+        )
+
+        // Agent 指标
+        const ad = (agentRes.data?.data || agentRes.data) as { name: string; calls: number; avgDuration: number }[]
+        if (Array.isArray(ad)) {
+          setAgentMetrics(ad)
+        }
+
+        // 系统指标
+        const sd = sysRes.data as { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number }
+        setSysMetrics(sd)
+      } catch (err) {
+        // 后端不可用时保持空数据，开发环境输出调试信息
+        if (import.meta.env.DEV) {
+          console.warn('[Dashboard] 指标数据获取失败:', err)
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchMetrics()
+  }, [])
+
+  return (
+    <div className="space-y-6 animate-slide-up">
+      {/* 系统资源面板 */}
+      <SystemPanel metrics={sysMetrics} loading={loading} />
+
+      {/* 图表 */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="forge-card !bg-surface-dark">
+          <div className="mb-4 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-forge-400" />
+            <h3 className="text-base font-semibold text-white">任务执行时间趋势</h3>
+          </div>
+          {loading ? (
+            <div className="flex h-[300px] items-center justify-center text-neutral-500">加载中...</div>
+          ) : (
+            <TaskDurationChart data={taskMetrics} />
+          )}
+        </div>
+
+        <div className="forge-card !bg-surface-dark">
+          <div className="mb-4 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-accent" />
+            <h3 className="text-base font-semibold text-white">Agent 调用分布</h3>
+          </div>
+          {loading ? (
+            <div className="flex h-[300px] items-center justify-center text-neutral-500">加载中...</div>
+          ) : (
+            <AgentCallsChart data={agentMetrics} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// 系统资源面板
+// ============================================================
+
+function SystemPanel({ metrics, loading }: { metrics: { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number }; loading: boolean }) {
+  const items = [
+    { label: 'CPU', value: metrics.cpuUsage, unit: '%', icon: Cpu, color: 'text-forge-400', barColor: 'bg-forge-500' },
+    { label: '内存', value: metrics.memoryUsage, unit: '%', icon: HardDrive, color: 'text-amber-400', barColor: 'bg-amber-500' },
+    { label: '活跃任务', value: metrics.activeTasks, unit: '', icon: CirclePlay, color: 'text-purple-400', barColor: 'bg-purple-500', max: 50 },
+    { label: '总请求', value: metrics.totalRequests, unit: '', icon: TrendingUp, color: 'text-emerald-400', barColor: 'bg-emerald-500', max: 500 },
+  ]
+
+  return (
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {items.map((item) => (
+        <div key={item.label} className="forge-card !bg-surface-dark !p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <item.icon className={`h-4 w-4 ${item.color}`} />
+            <span className="text-xs text-neutral-400">{item.label}</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-bold text-white tabular-nums">
+              {loading ? '—' : item.value}
+            </span>
+            {item.unit && <span className="text-xs text-neutral-500">{item.unit}</span>}
+          </div>
+          {/* 进度条 */}
+          <div className="mt-2 h-1.5 rounded-full bg-neutral-700">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${item.barColor}`}
+              style={{ width: `${Math.min((item.value / (item.max || 100)) * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

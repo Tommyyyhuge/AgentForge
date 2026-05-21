@@ -103,7 +103,7 @@ class ResearcherAgent(BaseAgent):
 
         return None
 
-    async def execute(
+    async def execute(  # type: ignore[override]
         self,
         task: Any,
         context: Optional[str] = None,
