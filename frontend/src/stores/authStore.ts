@@ -149,11 +149,10 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           })
         } catch (err) {
-          // token 失效或过期 → 清除认证状态
+          // /auth/me 失败时不立即登出 — 可能只是 token 尚未持久化
+          // 仅清除 user，保留 token 和认证状态供重试
           set({
             user: null,
-            token: null,
-            isAuthenticated: false,
             isLoading: false,
             error: extractErrorMessage(err),
           })
