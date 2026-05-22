@@ -50,9 +50,12 @@ export const AUTH_STORAGE_KEY = 'agentforge-auth'
 // 辅助函数
 // ============================================================
 
-/** 从 axios / ApiResponse 中提取 data */
-function extractData<T>(response: { data: ApiResponse<T> }): T {
-  return response.data.data
+/** 从 axios 响应中提取 data — 兼容包裹/非包裹格式 */
+function extractData<T>(response: { data: ApiResponse<T> | T }): T {
+  const body = response.data as any
+  // FastAPI 直接返回模型时，body 就是数据本身
+  // 包裹格式: { success: true, data: {...} }
+  return body?.success ? body.data : body
 }
 
 /** 从 ApiError 中提取可读错误信息 */
@@ -70,18 +73,7 @@ function extractErrorMessage(err: unknown): string {
   return '操作失败，请稍后重试'
 }
 
-// ============================================================
-// 登录 / 注册 API 响应类型
-// ============================================================
-
-interface AuthResponse {
-  user: AuthUser
-  token: string
-}
-
-// ============================================================
-// Store
-// ============================================================
+// ------- Store
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -97,22 +89,18 @@ export const useAuthStore = create<AuthState>()(
       login: async (username: string, password: string) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/login', {
+          const response = await apiClient.post('/auth/login', {
             username,
             password,
           })
-          const { user, token } = extractData(response)
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-          })
+          const data = extractData(response) as any
+          // 后端返回: { access_token, token_type }
+          const token = data.access_token
+          set({ token, isAuthenticated: true, isLoading: false, error: null })
+          // 登录后获取用户信息
+          await get().fetchUser()
         } catch (err) {
-          set({
-            isLoading: false,
-            error: extractErrorMessage(err),
-          })
+          set({ isLoading: false, error: extractErrorMessage(err) })
           throw err
         }
       },
@@ -121,23 +109,15 @@ export const useAuthStore = create<AuthState>()(
       register: async (username: string, password: string, email?: string) => {
         set({ isLoading: true, error: null })
         try {
-          const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', {
+          await apiClient.post('/auth/register', {
             username,
             password,
-            ...(email ? { email } : {}),
+            email: email || '',
           })
-          const { user, token } = extractData(response)
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-          })
+          // 注册成功，自动登录
+          await get().login(username, password)
         } catch (err) {
-          set({
-            isLoading: false,
-            error: extractErrorMessage(err),
-          })
+          set({ isLoading: false, error: extractErrorMessage(err) })
           throw err
         }
       },
