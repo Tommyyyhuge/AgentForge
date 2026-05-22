@@ -28,10 +28,10 @@ export default {
           muted:   'rgba(170, 59, 255, 0.1)',
         },
         surface: {
-          bg:     'var(--surface-bg)',
-          light:  'var(--surface-light)',
-          dark:   'var(--surface-dark)',
-          border: 'var(--surface-border)',
+          bg:     '#0a0a0a',
+          light:  '#141414',
+          dark:   '#16171d',
+          border: '#262626',
         },
       },
       fontFamily: {

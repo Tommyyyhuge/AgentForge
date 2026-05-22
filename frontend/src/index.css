@@ -13,26 +13,17 @@
     --forge-950: #0a0f48;
     --accent:    #aa3bff;
     --accent-light: #c084fc;
-    --surface-bg: #0a0a0a;
-    --surface-light: #141414;
-    --surface-dark: #16171d;
-    --surface-border: #262626;
   }
 
   *,
   *::before,
-  *::after {
-    box-sizing: border-box;
-  }
+  *::after { box-sizing: border-box; }
 
   body {
     @apply m-0 font-sans antialiased;
-    @apply bg-neutral-950 dark:bg-neutral-950 text-white;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-[#0a0a0a] text-white;
   }
 
-  /* 滚动条 — 暗色主题 */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply rounded-full; background: rgba(255,255,255,0.12); }
