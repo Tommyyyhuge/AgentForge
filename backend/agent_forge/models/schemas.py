@@ -129,6 +129,13 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6, max_length=128, description="密码")
 
 
+class LoginRequest(BaseModel):
+    """用户登录请求体"""
+
+    username: str = Field(..., min_length=3, description="用户名")
+    password: str = Field(..., min_length=6, description="密码")
+
+
 class UserResponse(BaseModel):
     """用户信息响应体"""
 

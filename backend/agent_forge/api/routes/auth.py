@@ -20,7 +20,7 @@ from agent_forge.api.middleware.auth import (
     get_password_hash,
     verify_password,
 )
-from agent_forge.models.schemas import Token, UserCreate, UserResponse
+from agent_forge.models.schemas import Token, UserCreate, LoginRequest, UserResponse
 from agent_forge.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -128,7 +128,7 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     response_model=Token,
     summary="用户登录",
 )
-async def login(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+async def login(user_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     """用户登录
 
     使用用户名+密码认证，返回 JWT access token。
