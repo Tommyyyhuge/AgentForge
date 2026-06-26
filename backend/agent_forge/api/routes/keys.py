@@ -5,8 +5,6 @@ AgentForge API Key 管理路由
 所有端点前缀: /api/v1/keys
 """
 import uuid
-from datetime import datetime, timezone
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -14,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_forge.api.middleware.auth import get_current_active_user
+from agent_forge.api.responses import success_response
 from agent_forge.config.settings import settings
 from agent_forge.database.connection import get_db
 from agent_forge.database.models import APIKeyORM, UserORM
@@ -84,7 +83,7 @@ def _orm_to_response(key: APIKeyORM) -> KeyResponse:
 
 @router.post(
     "",
-    response_model=KeyResponse,
+    response_model=None,
     status_code=status.HTTP_201_CREATED,
     summary="添加 API Key",
 )
@@ -114,12 +113,12 @@ async def create_key(
     await db.refresh(key)
 
     logger.info(f"用户 {user.username} 添加了 {request.provider} API Key: {masked}")
-    return _orm_to_response(key)
+    return success_response(_orm_to_response(key))
 
 
 @router.get(
     "",
-    response_model=List[KeyResponse],
+    response_model=None,
     summary="列出 API Key",
 )
 async def list_keys(
@@ -130,16 +129,16 @@ async def list_keys(
     result = await db.execute(
         select(APIKeyORM).where(
             APIKeyORM.user_id == user.id,
-            APIKeyORM.is_active == True,
+            APIKeyORM.is_active.is_(True),
         ).order_by(APIKeyORM.created_at.desc())
     )
     keys = result.scalars().all()
-    return [_orm_to_response(k) for k in keys]
+    return success_response([_orm_to_response(k) for k in keys])
 
 
 @router.get(
     "/{key_id}",
-    response_model=KeyResponse,
+    response_model=None,
     summary="获取 Key 详情",
 )
 async def get_key(
@@ -157,12 +156,12 @@ async def get_key(
     key = result.scalar_one_or_none()
     if not key:
         raise HTTPException(status_code=404, detail="Key 未找到")
-    return _orm_to_response(key)
+    return success_response(_orm_to_response(key))
 
 
 @router.get(
     "/{key_id}/usage",
-    response_model=KeyUsageResponse,
+    response_model=None,
     summary="获取 Key 使用统计",
 )
 async def get_key_usage(
@@ -181,12 +180,14 @@ async def get_key_usage(
     if not key:
         raise HTTPException(status_code=404, detail="Key 未找到")
 
-    return KeyUsageResponse(
-        id=key.id,
-        provider=key.provider,
-        masked_key=key.masked_key,
-        usage_count=key.usage_count,
-        last_used_at=key.last_used_at.isoformat() if key.last_used_at else None,
+    return success_response(
+        KeyUsageResponse(
+            id=key.id,
+            provider=key.provider,
+            masked_key=key.masked_key,
+            usage_count=key.usage_count,
+            last_used_at=key.last_used_at.isoformat() if key.last_used_at else None,
+        )
     )
 
 
@@ -215,4 +216,4 @@ async def delete_key(
     await db.commit()
 
     logger.info(f"用户 {user.username} 删除了 {key.provider} API Key: {key.masked_key}")
-    return {"message": "Key 已删除", "id": key_id}
+    return success_response({"id": key_id}, message="Key 已删除")

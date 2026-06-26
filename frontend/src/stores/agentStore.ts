@@ -8,29 +8,22 @@ import apiClient, { createSSEConnection } from '../api/client'
 
 export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
   idle:      'bg-slate-500/10 text-slate-400 border-slate-500/20',
-  thinking:  'bg-forge-500/10 text-forge-400 border-forge-500/20',
-  executing: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  waiting:   'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  busy:      'bg-amber-500/10 text-amber-400 border-amber-500/20',
   error:     'bg-red-500/10 text-red-400 border-red-500/20',
 }
 
 export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
   idle:      '空闲',
-  thinking:  '思考中',
-  executing: '执行中',
-  waiting:   '等待中',
-  completed: '已完成',
+  busy:      '忙碌',
   error:     '错误',
 }
 
 export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
-  orchestrator:  '调度者',
-  analyst:       '分析者',
-  executor:      '执行者',
-  critic:        '评审者',
   researcher:    '研究者',
-  communicator:  '沟通者',
+  coder:         '程序员',
+  writer:        '撰写者',
+  reviewer:      '审查者',
+  executor:      '执行者',
 }
 
 // ============================================================
@@ -40,38 +33,38 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
 const MOCK_AGENTS: Agent[] = [
   {
     id: 'agent-1',
-    name: 'Prometheus',
-    role: 'orchestrator',
-    status: 'executing',
-    description: '任务调度与编排，拆解复杂需求为可执行子任务',
+    name: 'Researcher',
+    role: 'researcher',
+    status: 'busy',
+    description: '信息搜索、资料整理和事实核查',
     model: 'deepseek-v4-pro',
     createdAt: '2026-05-15T08:00:00Z',
     updatedAt: '2026-05-20T14:00:00Z',
   },
   {
     id: 'agent-2',
-    name: 'Hephaestus',
-    role: 'executor',
+    name: 'Coder',
+    role: 'coder',
     status: 'idle',
-    description: '代码生成与文件操作，构建项目骨架',
+    description: '代码生成、脚本编写和技术实现',
     model: 'deepseek-v4-pro',
     createdAt: '2026-05-15T08:30:00Z',
     updatedAt: '2026-05-20T12:00:00Z',
   },
   {
     id: 'agent-3',
-    name: 'Athena',
-    role: 'analyst',
-    status: 'thinking',
-    description: '需求分析与技术方案评估',
+    name: 'Writer',
+    role: 'writer',
+    status: 'idle',
+    description: '结果整合、报告撰写和表达优化',
     model: 'deepseek-v4-pro',
     createdAt: '2026-05-16T09:00:00Z',
     updatedAt: '2026-05-20T10:00:00Z',
   },
   {
     id: 'agent-4',
-    name: 'Momus',
-    role: 'critic',
+    name: 'Reviewer',
+    role: 'reviewer',
     status: 'idle',
     description: '代码审查与质量把控，确保输出符合规范',
     model: 'deepseek-v4-pro',
@@ -84,13 +77,74 @@ const MOCK_AGENTS: Agent[] = [
 // 辅助函数
 // ============================================================
 
-function extractData<T>(response: { data: ApiResponse<T> }): T {
-  return response.data.data
+function extractData<T>(response: { data: ApiResponse<T> | T }): T {
+  const body = response.data
+  if (
+    body &&
+    typeof body === 'object' &&
+    'success' in body &&
+    body.success === true
+  ) {
+    return body.data
+  }
+  return body as T
 }
 
 function isNetworkError(error: unknown): boolean {
   return error instanceof Error &&
     (error.message.includes('无法连接') || error.message.includes('网络'))
+}
+
+type RawRecord = Record<string, unknown>
+
+function asRecord(value: unknown): RawRecord {
+  return value && typeof value === 'object' ? value as RawRecord : {}
+}
+
+function pickString(record: RawRecord, keys: string[], fallback = ''): string {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string') return value
+  }
+  return fallback
+}
+
+function normalizeAgentRole(value: unknown): AgentRole {
+  if (
+    value === 'researcher' ||
+    value === 'coder' ||
+    value === 'writer' ||
+    value === 'reviewer' ||
+    value === 'executor'
+  ) {
+    return value
+  }
+  return 'executor'
+}
+
+function normalizeAgentStatus(value: unknown): AgentStatus {
+  if (value === 'error') return 'error'
+  if (value === 'busy' || value === 'executing' || value === 'thinking') return 'busy'
+  return 'idle'
+}
+
+function normalizeAgent(input: unknown): Agent {
+  const record = asRecord(input)
+  const role = normalizeAgentRole(record.role)
+  const createdAt = pickString(record, ['createdAt', 'created_at'], new Date().toISOString())
+  const updatedAt = pickString(record, ['updatedAt', 'updated_at'], createdAt)
+  const name = pickString(record, ['name'], AGENT_ROLE_LABELS[role])
+
+  return {
+    id: pickString(record, ['id'], `agent-${role}`),
+    name,
+    role,
+    status: normalizeAgentStatus(record.status),
+    description: pickString(record, ['description'], `${name} agent`),
+    model: pickString(record, ['model'], 'configured-llm'),
+    createdAt,
+    updatedAt,
+  }
 }
 
 // ============================================================
@@ -116,8 +170,9 @@ export const useAgentStore = create<AgentStore>((set) => ({
   fetchAgents: async () => {
     set({ isLoading: true, error: null })
     try {
-      const response = await apiClient.get<ApiResponse<Agent[]>>('/agents')
-      set({ agents: extractData(response), isLoading: false })
+      const response = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/agents')
+      const agents = extractData<unknown[]>(response).map(normalizeAgent)
+      set({ agents, isLoading: false })
     } catch (err) {
       // API 不可达时降级为 mock 数据
       if (isNetworkError(err)) {
@@ -146,19 +201,20 @@ export const useAgentStore = create<AgentStore>((set) => ({
           // { type: 'agent_update', agent: Agent }
           const event = data as {
             type: string
-            agent?: Agent
+            agent?: unknown
           }
 
           if (event.type === 'agent_update' && event.agent) {
+            const nextAgent = normalizeAgent(event.agent)
             set((s) => {
-              const idx = s.agents.findIndex((a) => a.id === event.agent!.id)
+              const idx = s.agents.findIndex((a) => a.id === nextAgent.id)
               if (idx >= 0) {
                 const updated = [...s.agents]
-                updated[idx] = event.agent!
+                updated[idx] = nextAgent
                 return { agents: updated }
               }
               // 新 Agent 出现
-              return { agents: [...s.agents, event.agent!] }
+              return { agents: [...s.agents, nextAgent] }
             })
           }
         },

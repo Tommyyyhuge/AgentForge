@@ -89,7 +89,7 @@ export default function AgentFlow({
         source: assignedAgents[i].id,
         target: assignedAgents[i + 1].id,
         type: 'default',
-        animated: assignedAgents[i].status === 'executing',
+        animated: assignedAgents[i].status === 'busy',
       })
     }
 

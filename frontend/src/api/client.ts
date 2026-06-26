@@ -125,7 +125,7 @@ apiClient.interceptors.response.use(
 /** SSE 连接配置 */
 export interface SSEConfig {
   /** 收到消息时的回调 */
-  onMessage: (data: unknown) => void
+  onMessage: (data: unknown, eventType?: string) => void
   /** 连接打开时的回调 */
   onOpen?: () => void
   /** 发生错误时的回调 */
@@ -159,19 +159,29 @@ export function createSSEConnection(
   const eventSource = new EventSource(fullUrl)
   const parse = config.parse ?? JSON.parse
 
-  eventSource.onopen = () => {
-    config.onOpen?.()
-  }
-
-  eventSource.onmessage = (event: MessageEvent) => {
+  const handleMessage = (eventType: string, event: MessageEvent) => {
     try {
       const data = parse(event.data as string)
-      config.onMessage(data)
+      config.onMessage(data, eventType)
     } catch (err) {
       if (import.meta.env.DEV) {
         console.warn('[SSE] 数据解析失败:', event.data, err)
       }
     }
+  }
+
+  eventSource.onopen = () => {
+    config.onOpen?.()
+  }
+
+  eventSource.onmessage = (event: MessageEvent) => {
+    handleMessage('message', event)
+  }
+
+  for (const eventType of ['step', 'done', 'agent_state']) {
+    eventSource.addEventListener(eventType, (event) => {
+      handleMessage(eventType, event as MessageEvent)
+    })
   }
 
   eventSource.onerror = (error: Event) => {

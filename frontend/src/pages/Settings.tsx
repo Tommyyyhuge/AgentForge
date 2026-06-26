@@ -46,6 +46,14 @@ interface AuthFormData {
   email: string
 }
 
+interface ApiErrorLike {
+  response?: {
+    data?: {
+      detail?: string
+    }
+  }
+}
+
 // ============================================================
 // 常量
 // ============================================================
@@ -481,6 +489,23 @@ interface ServerKey {
   created_at: string
 }
 
+interface ApiEnvelope<T> {
+  success: true
+  data: T
+}
+
+function unwrapApiData<T>(body: T | ApiEnvelope<T>): T {
+  if (
+    body &&
+    typeof body === 'object' &&
+    'success' in body &&
+    body.success === true
+  ) {
+    return body.data
+  }
+  return body as T
+}
+
 function APIKeySection() {
   const [keys, setKeys] = useState<ServerKey[]>([])
   const [showAdd, setShowAdd] = useState(false)
@@ -494,8 +519,8 @@ function APIKeySection() {
 
   async function loadKeys() {
     try {
-      const res = await apiClient.get<{ data: ServerKey[] }>('/keys')
-      setKeys(res.data.data || [])
+      const res = await apiClient.get<ApiEnvelope<ServerKey[]> | ServerKey[]>('/keys')
+      setKeys(unwrapApiData(res.data) || [])
     } catch {
       // 后端不可用时静默处理
     }
@@ -513,8 +538,9 @@ function APIKeySection() {
       await loadKeys()
       setShowAdd(false)
       setForm({ provider: 'kimi', api_key: '', permission: 'write' })
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || '添加失败')
+    } catch (err: unknown) {
+      const apiError = err as ApiErrorLike
+      setError(apiError.response?.data?.detail || '添加失败')
     } finally {
       setIsLoading(false)
     }

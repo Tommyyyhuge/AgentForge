@@ -23,7 +23,7 @@ export default function Tasks() {
   })
 
   const statuses: Array<TaskStatus | 'all'> = [
-    'all', 'pending', 'running', 'completed', 'failed',
+    'all', 'pending', 'planning', 'executing', 'completed', 'failed', 'cancelled',
   ]
 
   return (

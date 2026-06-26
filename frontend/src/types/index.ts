@@ -36,20 +36,16 @@ export interface PaginatedResponse<T> {
 // ---------- Agent 核心类型 ----------
 /** Agent 角色枚举 */
 export type AgentRole =
-  | 'orchestrator'
-  | 'analyst'
-  | 'executor'
-  | 'critic'
   | 'researcher'
-  | 'communicator'
+  | 'coder'
+  | 'writer'
+  | 'reviewer'
+  | 'executor'
 
 /** Agent 状态 */
 export type AgentStatus =
   | 'idle'
-  | 'thinking'
-  | 'executing'
-  | 'waiting'
-  | 'completed'
+  | 'busy'
   | 'error'
 
 /** Agent 实体 */
@@ -78,9 +74,8 @@ export interface AgentMessage {
 /** 任务状态 */
 export type TaskStatus =
   | 'pending'
-  | 'queued'
-  | 'running'
-  | 'paused'
+  | 'planning'
+  | 'executing'
   | 'completed'
   | 'failed'
   | 'cancelled'

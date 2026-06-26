@@ -11,11 +11,13 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agent_forge.api.responses import success_response
 from agent_forge.core.cancellation import CancellationToken
 from agent_forge.core.llm_client import LLMRouter
 from agent_forge.core.orchestrator import Orchestrator
@@ -133,9 +135,17 @@ async def _save_step(
         id=step.id,
         task_id=task_id,
         agent_id=step.agent_id,
-        agent_role=step.agent_role.value if hasattr(step.agent_role, "value") else str(step.agent_role),
+        agent_role=(
+            step.agent_role.value
+            if hasattr(step.agent_role, "value")
+            else str(step.agent_role)
+        ),
         step_number=step.step_number,
-        step_type=step.step_type.value if hasattr(step.step_type, "value") else str(step.step_type),
+        step_type=(
+            step.step_type.value
+            if hasattr(step.step_type, "value")
+            else str(step.step_type)
+        ),
         content=step.content,
         timestamp=step.timestamp,
     )
@@ -231,7 +241,13 @@ async def _broadcast_step(task_id: str, step: AgentStep) -> None:
     if not queues:
         return
 
-    data = json.dumps(step.model_dump(), default=str)
+    data = json.dumps(
+        {
+            "type": "step_update",
+            "step": jsonable_encoder(step),
+        },
+        default=str,
+    )
     for q in queues:
         try:
             q.put_nowait(data)
@@ -274,11 +290,11 @@ def _unsubscribe_sse(task_id: str, queue: asyncio.Queue) -> None:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/", response_model=TaskResponse, status_code=201)
+@router.post("/", response_model=None, status_code=201)
 async def create_task(
     body: CreateTaskRequest,
     db: AsyncSession = Depends(get_db),
-) -> TaskResponse:
+):
     """创建新任务
 
     1. 保存任务记录到数据库
@@ -318,13 +334,13 @@ async def create_task(
         _background_execute(task_id, body.description)
     )
 
-    return _orm_task_to_response(task_orm)
+    return success_response(_orm_task_to_response(task_orm))
 
 
-@router.get("/", response_model=List[TaskResponse])
+@router.get("/", response_model=None)
 async def list_tasks(
     db: AsyncSession = Depends(get_db),
-) -> List[TaskResponse]:
+):
     """查询所有任务
 
     按创建时间降序排列。
@@ -333,14 +349,14 @@ async def list_tasks(
         select(TaskORM).order_by(TaskORM.created_at.desc())
     )
     tasks = result.scalars().all()
-    return [_orm_task_to_response(t) for t in tasks]
+    return success_response([_orm_task_to_response(t) for t in tasks])
 
 
-@router.get("/{task_id}", response_model=TaskDetailResponse)
+@router.get("/{task_id}", response_model=None)
 async def get_task(
     task_id: str,
     db: AsyncSession = Depends(get_db),
-) -> TaskDetailResponse:
+):
     """查询任务详情（含执行步骤）
 
     Args:
@@ -362,14 +378,16 @@ async def get_task(
     )
     steps = steps_result.scalars().all()
 
-    return TaskDetailResponse(
-        id=task.id,
-        title=task.title,
-        description=task.description,
-        status=task.status,
-        created_at=task.created_at,
-        updated_at=task.updated_at,
-        steps=[_orm_step_to_response(s) for s in steps],
+    return success_response(
+        TaskDetailResponse(
+            id=task.id,
+            title=task.title,
+            description=task.description,
+            status=task.status,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+            steps=[_orm_step_to_response(s) for s in steps],
+        )
     )
 
 
@@ -449,7 +467,14 @@ async def stream_task(
                 existing_steps = result.scalars().all()
                 for step_orm in existing_steps:
                     step_resp = _orm_step_to_response(step_orm)
-                    yield f"event: step\ndata: {step_resp.model_dump_json()}\n\n"
+                    payload = json.dumps(
+                        {
+                            "type": "step_update",
+                            "step": jsonable_encoder(step_resp),
+                        },
+                        default=str,
+                    )
+                    yield f"event: step\ndata: {payload}\n\n"
 
             # 然后等待实时事件
             while True:
@@ -472,7 +497,17 @@ async def stream_task(
                         TaskStatus.FAILED.value,
                         TaskStatus.CANCELLED.value,
                     ):
-                        yield f"event: done\ndata: {{\"status\": \"{current_task.status}\"}}\n\n"
+                        task_payload = json.dumps(
+                            {
+                                "type": "done",
+                                "status": current_task.status,
+                                "task": jsonable_encoder(
+                                    _orm_task_to_response(current_task)
+                                ),
+                            },
+                            default=str,
+                        )
+                        yield f"event: done\ndata: {task_payload}\n\n"
                         break
 
         except asyncio.CancelledError:

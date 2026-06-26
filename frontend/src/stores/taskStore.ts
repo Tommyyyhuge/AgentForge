@@ -6,7 +6,7 @@ import apiClient, { createSSEConnection } from '../api/client'
 // 展示类型（用于时间线视觉区分）
 // ============================================================
 
-export type StepDisplayType = 'thought' | 'action' | 'observation' | 'final'
+export type StepDisplayType = 'thought' | 'action' | 'observation' | 'final' | 'error'
 
 export interface StepWithDisplay {
   id: string
@@ -27,9 +27,8 @@ export interface StepWithDisplay {
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
   pending:   'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  queued:    'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  running:   'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  paused:    'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  planning:  'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  executing: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   failed:    'bg-red-500/10 text-red-400 border-red-500/20',
   cancelled: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
@@ -37,9 +36,8 @@ export const STATUS_COLORS: Record<TaskStatus, string> = {
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
   pending:   '待处理',
-  queued:    '排队中',
-  running:   '进行中',
-  paused:    '已暂停',
+  planning:  '规划中',
+  executing: '执行中',
   completed: '已完成',
   failed:    '失败',
   cancelled: '已取消',
@@ -50,6 +48,7 @@ export const STEP_TYPE_COLORS: Record<StepDisplayType, string> = {
   action:      'border-amber-500/30 bg-amber-500/10 text-amber-400',
   observation: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400',
   final:       'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
+  error:       'border-red-500/30 bg-red-500/10 text-red-400',
 }
 
 export const STEP_TYPE_LABELS: Record<StepDisplayType, string> = {
@@ -57,6 +56,7 @@ export const STEP_TYPE_LABELS: Record<StepDisplayType, string> = {
   action:      '行动',
   observation: '观察',
   final:       '完成',
+  error:       '错误',
 }
 
 // ============================================================
@@ -81,7 +81,7 @@ const MOCK_TASKS: Task[] = [
     id: 'task-2',
     title: '搭建项目基础架构',
     description: '创建 Vite + React + TypeScript 项目骨架，配置 Tailwind CSS',
-    status: 'running',
+    status: 'executing',
     priority: 'critical' as TaskPriority,
     assignedAgents: ['agent-1', 'agent-2'],
     dependencies: ['task-1'],
@@ -103,7 +103,7 @@ const MOCK_TASKS: Task[] = [
     id: 'task-4',
     title: '设计数据库模型',
     description: '设计 Agent 和 Task 相关的数据库表结构',
-    status: 'queued',
+    status: 'planning',
     priority: 'medium' as TaskPriority,
     assignedAgents: ['agent-2'],
     dependencies: [],
@@ -182,14 +182,121 @@ const MOCK_STEPS: StepWithDisplay[] = [
 // ============================================================
 
 /** 从 axios / ApiResponse 中提取 data */
-function extractData<T>(response: { data: ApiResponse<T> }): T {
-  return response.data.data
+function extractData<T>(response: { data: ApiResponse<T> | T }): T {
+  const body = response.data
+  if (
+    body &&
+    typeof body === 'object' &&
+    'success' in body &&
+    body.success === true
+  ) {
+    return body.data
+  }
+  return body as T
 }
 
 /** 判断是否为后端 API 不可达错误 */
 function isNetworkError(error: unknown): boolean {
   return error instanceof Error &&
     (error.message.includes('无法连接') || error.message.includes('网络'))
+}
+
+type RawRecord = Record<string, unknown>
+
+function asRecord(value: unknown): RawRecord {
+  return value && typeof value === 'object' ? value as RawRecord : {}
+}
+
+function pickString(record: RawRecord, keys: string[], fallback = ''): string {
+  for (const key of keys) {
+    const value = record[key]
+    if (typeof value === 'string') return value
+  }
+  return fallback
+}
+
+function pickStringArray(record: RawRecord, keys: string[]): string[] {
+  for (const key of keys) {
+    const value = record[key]
+    if (Array.isArray(value)) {
+      return value.filter((item): item is string => typeof item === 'string')
+    }
+  }
+  return []
+}
+
+function normalizeTaskStatus(value: unknown): TaskStatus {
+  if (value === 'planning' || value === 'executing' || value === 'completed' ||
+      value === 'failed' || value === 'cancelled' || value === 'pending') {
+    return value
+  }
+  if (value === 'running') return 'executing'
+  return 'pending'
+}
+
+function normalizeTask(input: unknown): Task {
+  const record = asRecord(input)
+  const createdAt = pickString(record, ['createdAt', 'created_at'], new Date().toISOString())
+  const updatedAt = pickString(record, ['updatedAt', 'updated_at'], createdAt)
+  const priorityValue = pickString(record, ['priority'], 'medium') as TaskPriority
+
+  return {
+    id: pickString(record, ['id']),
+    title: pickString(record, ['title'], '新任务'),
+    description: pickString(record, ['description']),
+    status: normalizeTaskStatus(record.status),
+    priority: priorityValue,
+    assignedAgents: pickStringArray(record, ['assignedAgents', 'assigned_agents']),
+    dependencies: pickStringArray(record, ['dependencies']),
+    result: pickString(record, ['result', 'output']) || undefined,
+    error: pickString(record, ['error', 'error_message']) || undefined,
+    createdAt,
+    updatedAt,
+    completedAt: pickString(record, ['completedAt', 'completed_at']) || undefined,
+  }
+}
+
+function normalizeStepType(value: unknown): StepDisplayType {
+  if (
+    value === 'thought' ||
+    value === 'action' ||
+    value === 'observation' ||
+    value === 'final' ||
+    value === 'error'
+  ) {
+    return value
+  }
+  return 'action'
+}
+
+function normalizeStep(input: unknown): StepWithDisplay {
+  const record = asRecord(input)
+  const stepType = normalizeStepType(record.stepType ?? record.step_type)
+  const timestamp = pickString(record, ['startedAt', 'timestamp'])
+  const status =
+    record.status === 'pending' || record.status === 'running' ||
+    record.status === 'completed' || record.status === 'failed'
+      ? record.status
+      : stepType === 'error'
+        ? 'failed'
+        : 'completed'
+
+  return {
+    id: pickString(record, ['id']),
+    taskId: pickString(record, ['taskId', 'task_id']),
+    order: typeof record.order === 'number'
+      ? record.order
+      : typeof record.step_number === 'number'
+        ? record.step_number
+        : 0,
+    action: pickString(record, ['action', 'content']),
+    stepType,
+    status,
+    result: pickString(record, ['result', 'tool_output']) || undefined,
+    agentId: pickString(record, ['agentId', 'agent_id']) || undefined,
+    startedAt: timestamp || undefined,
+    completedAt: pickString(record, ['completedAt', 'completed_at']) || undefined,
+  }
 }
 
 // ============================================================
@@ -223,8 +330,9 @@ export const useTaskStore = create<TaskStore>((set) => ({
   fetchTasks: async () => {
     set({ isLoading: true, error: null })
     try {
-      const response = await apiClient.get<ApiResponse<Task[]>>('/tasks')
-      set({ tasks: extractData(response), isLoading: false })
+      const response = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/tasks')
+      const tasks = extractData<unknown[]>(response).map(normalizeTask)
+      set({ tasks, isLoading: false })
     } catch (err) {
       // API 不可达时降级为 mock 数据
       if (isNetworkError(err)) {
@@ -243,12 +351,9 @@ export const useTaskStore = create<TaskStore>((set) => ({
       const payload = {
         title: data.title ?? '新任务',
         description: data.description ?? '',
-        priority: data.priority ?? 'medium',
-        assignedAgents: data.assignedAgents ?? [],
-        dependencies: data.dependencies ?? [],
       }
-      const response = await apiClient.post<ApiResponse<Task>>('/tasks', payload)
-      const newTask = extractData(response)
+      const response = await apiClient.post<ApiResponse<unknown> | unknown>('/tasks', payload)
+      const newTask = normalizeTask(extractData<unknown>(response))
       set((s) => ({ tasks: [newTask, ...s.tasks], isLoading: false }))
       return newTask
     } catch (err) {
@@ -279,14 +384,16 @@ export const useTaskStore = create<TaskStore>((set) => ({
     set({ isLoading: true, error: null })
     try {
       // 获取任务详情
-      const response = await apiClient.get<ApiResponse<Task>>(`/tasks/${taskId}`)
-      const task = extractData(response)
+      const response = await apiClient.get<ApiResponse<RawRecord> | RawRecord>(`/tasks/${taskId}`)
+      const rawDetail = extractData<RawRecord>(response)
+      const task = normalizeTask(rawDetail)
 
       // 步骤数据：尝试从后端获取；如果后端不返回 steps 字段，用 mock
       // 后端API设计：GET /tasks/{id} 返回任务详情，步骤可能通过SSE获取
-      const steps: StepWithDisplay[] = (response.data as unknown as Record<string, unknown>).steps
-        ? ((response.data as unknown as Record<string, unknown>).steps as StepWithDisplay[])
+      const rawSteps = Array.isArray(rawDetail.steps)
+        ? rawDetail.steps
         : MOCK_STEPS.filter((s) => s.taskId === taskId)
+      const steps = rawSteps.map(normalizeStep)
 
       set({ currentTask: task, steps, isLoading: false })
       return { task, steps }
@@ -326,35 +433,54 @@ export const useTaskStore = create<TaskStore>((set) => ({
           // { type: 'task_update', task: Task }
           const event = data as {
             type: string
-            step?: StepWithDisplay
-            task?: Task
+            step?: unknown
+            task?: unknown
+            status?: TaskStatus
           }
 
           if (event.type === 'step_update' && event.step) {
+            const nextStep = normalizeStep(event.step)
             set((s) => {
-              const idx = s.steps.findIndex((st) => st.id === event.step!.id)
+              const idx = s.steps.findIndex((st) => st.id === nextStep.id)
               if (idx >= 0) {
                 const updated = [...s.steps]
-                updated[idx] = event.step!
+                updated[idx] = nextStep
                 return { steps: updated }
               }
-              return { steps: [...s.steps, event.step!].sort((a, b) => a.order - b.order) }
+              return {
+                steps: [...s.steps, nextStep].sort((a, b) => a.order - b.order),
+              }
             })
           }
 
-          if (event.type === 'task_update' && event.task) {
+          if ((event.type === 'task_update' || event.type === 'done') && event.task) {
+            const nextTask = normalizeTask(event.task)
             set((s) => {
               // 更新 currentTask（如果当前查看的就是这个任务）
-              if (s.currentTask?.id === event.task!.id) {
-                return { currentTask: event.task! }
+              if (s.currentTask?.id === nextTask.id) {
+                return {
+                  currentTask: nextTask,
+                  tasks: s.tasks.map((t) => t.id === nextTask.id ? nextTask : t),
+                }
               }
               // 同时更新 tasks 列表中的对应项
               return {
                 tasks: s.tasks.map((t) =>
-                  t.id === event.task!.id ? event.task! : t,
+                  t.id === nextTask.id ? nextTask : t,
                 ),
               }
             })
+          }
+
+          if (event.type === 'done' && !event.task && event.status) {
+            set((s) => ({
+              currentTask: s.currentTask
+                ? { ...s.currentTask, status: normalizeTaskStatus(event.status) }
+                : s.currentTask,
+              tasks: s.tasks.map((t) =>
+                t.id === taskId ? { ...t, status: normalizeTaskStatus(event.status) } : t,
+              ),
+            }))
           }
         },
 

@@ -21,6 +21,18 @@ import apiClient from '../api/client'
 import type { Task } from '../types'
 import type { Agent } from '../types'
 
+function unwrapApiData<T>(body: T | { success: true; data: T }): T {
+  if (
+    body &&
+    typeof body === 'object' &&
+    'success' in body &&
+    body.success === true
+  ) {
+    return body.data
+  }
+  return body as T
+}
+
 const STAT_CARDS = [
   {
     key: 'total',
@@ -67,7 +79,7 @@ export default function Dashboard() {
   }, [fetchTasks, fetchAgents, subscribeToAgents])
 
   const totalTasks = tasks.length
-  const runningTasks = tasks.filter((t: Task) => t.status === 'running').length
+  const runningTasks = tasks.filter((t: Task) => t.status === 'executing').length
   const completedTasks = tasks.filter((t: Task) => t.status === 'completed').length
   const statValues = { total: totalTasks, running: runningTasks, completed: completedTasks }
 
@@ -269,7 +281,10 @@ function DashboardCharts() {
         ])
 
         // 任务指标
-        const td = taskRes.data as { timestamps: string[]; durations: number[]; counts: number[] }
+        const td = unwrapApiData(
+          taskRes.data as { timestamps: string[]; durations: number[]; counts: number[] } |
+            { success: true; data: { timestamps: string[]; durations: number[]; counts: number[] } }
+        )
         setTaskMetrics(
           td.timestamps.map((t, i) => ({
             time: t,
@@ -279,13 +294,19 @@ function DashboardCharts() {
         )
 
         // Agent 指标
-        const ad = (agentRes.data?.data || agentRes.data) as { name: string; calls: number; avgDuration: number }[]
+        const ad = unwrapApiData(
+          agentRes.data as { name: string; calls: number; avgDuration: number }[] |
+            { success: true; data: { name: string; calls: number; avgDuration: number }[] }
+        )
         if (Array.isArray(ad)) {
           setAgentMetrics(ad)
         }
 
         // 系统指标
-        const sd = sysRes.data as { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number }
+        const sd = unwrapApiData(
+          sysRes.data as { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number } |
+            { success: true; data: { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number } }
+        )
         setSysMetrics(sd)
       } catch (err) {
         // 后端不可用时保持空数据，开发环境输出调试信息

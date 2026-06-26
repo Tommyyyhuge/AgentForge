@@ -16,12 +16,11 @@ import type { Agent } from '../types'
 
 /** Agent 角色图标映射 */
 const ROLE_ICONS: Record<string, React.ReactNode> = {
-  orchestrator:  <Cpu className="h-4 w-4 text-forge-400" />,
-  analyst:       <Bot className="h-4 w-4 text-cyan-400" />,
-  executor:      <Bot className="h-4 w-4 text-amber-400" />,
-  critic:        <Bot className="h-4 w-4 text-purple-400" />,
   researcher:    <Bot className="h-4 w-4 text-emerald-400" />,
-  communicator:  <Bot className="h-4 w-4 text-pink-400" />,
+  coder:         <Bot className="h-4 w-4 text-cyan-400" />,
+  writer:        <Bot className="h-4 w-4 text-forge-400" />,
+  reviewer:      <Bot className="h-4 w-4 text-purple-400" />,
+  executor:      <Bot className="h-4 w-4 text-amber-400" />,
 }
 
 /** 格式化为多久之前 */
@@ -49,7 +48,7 @@ export default function AgentMonitor() {
   }, [fetchAgents, subscribeToAgents])
 
   const onlineCount = agents.filter((a) => a.status !== 'error').length
-  const busyCount = agents.filter((a) => a.status === 'executing' || a.status === 'thinking').length
+  const busyCount = agents.filter((a) => a.status === 'busy').length
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 animate-slide-up">

@@ -5,18 +5,22 @@ AgentForge Agent 管理 API 路由
 所有端点前缀: /api/v1/agents
 """
 import asyncio
-from datetime import datetime
+import json
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agent_forge.api.responses import success_response
 from agent_forge.core.a2a_bus import A2ABus, A2AMessage
 from agent_forge.database.connection import get_db
 from agent_forge.database.models import AgentStateORM
+from agent_forge.models.schemas import AgentRole
 from agent_forge.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -31,6 +35,14 @@ _a2a_bus = A2ABus()
 
 # Agent 状态 SSE 广播队列列表
 _agent_sse_queues: List[asyncio.Queue] = []
+
+_BUILTIN_AGENTS = (
+    (AgentRole.RESEARCHER.value, "Researcher"),
+    (AgentRole.CODER.value, "Coder"),
+    (AgentRole.WRITER.value, "Writer"),
+    (AgentRole.REVIEWER.value, "Reviewer"),
+    (AgentRole.EXECUTOR.value, "Executor"),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -104,13 +116,16 @@ async def _broadcast_agent_state(agent: AgentStateORM) -> None:
     if not _agent_sse_queues:
         return
 
-    payload = _orm_agent_to_response(agent)
-    data = payload.model_dump_json()
+    payload = {
+        "type": "agent_update",
+        "agent": jsonable_encoder(_orm_agent_to_response(agent)),
+    }
+    data = jsonable_encoder(payload)
     dead_queues: List[asyncio.Queue] = []
 
     for q in _agent_sse_queues:
         try:
-            q.put_nowait(data)
+            q.put_nowait(json.dumps(data, default=str))
         except asyncio.QueueFull:
             dead_queues.append(q)
 
@@ -118,6 +133,37 @@ async def _broadcast_agent_state(agent: AgentStateORM) -> None:
     for q in dead_queues:
         if q in _agent_sse_queues:
             _agent_sse_queues.remove(q)
+
+
+async def _ensure_builtin_agent_states(db: AsyncSession) -> List[AgentStateORM]:
+    """Ensure the five executable built-in agents have visible state rows."""
+    result = await db.execute(
+        select(AgentStateORM).order_by(AgentStateORM.created_at.asc())
+    )
+    agents = list(result.scalars().all())
+    existing_roles = {agent.role for agent in agents}
+    created_any = False
+    now = datetime.now(timezone.utc)
+
+    for role, name in _BUILTIN_AGENTS:
+        if role in existing_roles:
+            continue
+        agent = AgentStateORM(
+            id=f"agent-{role}",
+            role=role,
+            name=name,
+            status="idle",
+            created_at=now,
+        )
+        db.add(agent)
+        agents.append(agent)
+        created_any = True
+
+    if created_any:
+        await db.commit()
+
+    role_order = {role: index for index, (role, _) in enumerate(_BUILTIN_AGENTS)}
+    return sorted(agents, key=lambda agent: role_order.get(agent.role, 999))
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +190,16 @@ async def stream_agents(
         try:
             # 首先发送当前所有 Agent 的状态快照
             async with _create_session() as db:
-                result = await db.execute(select(AgentStateORM))
-                agents = result.scalars().all()
+                agents = await _ensure_builtin_agent_states(db)
                 for agent in agents:
-                    resp = _orm_agent_to_response(agent)
-                    yield f"event: agent_state\ndata: {resp.model_dump_json()}\n\n"
+                    payload = {
+                        "type": "agent_update",
+                        "agent": jsonable_encoder(_orm_agent_to_response(agent)),
+                    }
+                    yield (
+                        "event: agent_state\n"
+                        f"data: {json.dumps(payload, default=str)}\n\n"
+                    )
 
             # 等待实时状态变更事件
             while True:
@@ -178,26 +229,23 @@ async def stream_agents(
     )
 
 
-@router.get("/", response_model=List[AgentResponse])
+@router.get("/", response_model=None)
 async def list_agents(
     db: AsyncSession = Depends(get_db),
-) -> List[AgentResponse]:
+):
     """查询所有 Agent 状态
 
     按创建时间升序排列。
     """
-    result = await db.execute(
-        select(AgentStateORM).order_by(AgentStateORM.created_at.asc())
-    )
-    agents = result.scalars().all()
-    return [_orm_agent_to_response(a) for a in agents]
+    agents = await _ensure_builtin_agent_states(db)
+    return success_response([_orm_agent_to_response(a) for a in agents])
 
 
-@router.get("/{agent_id}", response_model=AgentResponse)
+@router.get("/{agent_id}", response_model=None)
 async def get_agent(
     agent_id: str,
     db: AsyncSession = Depends(get_db),
-) -> AgentResponse:
+):
     """查询 Agent 详情
 
     Args:
@@ -209,15 +257,15 @@ async def get_agent(
     agent = await db.get(AgentStateORM, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail=f"Agent 不存在: {agent_id}")
-    return _orm_agent_to_response(agent)
+    return success_response(_orm_agent_to_response(agent))
 
 
-@router.post("/{agent_id}/message", response_model=AgentMessageResponse, status_code=201)
+@router.post("/{agent_id}/message", response_model=None, status_code=201)
 async def send_agent_message(
     agent_id: str,
     body: MessageRequest,
     db: AsyncSession = Depends(get_db),
-) -> AgentMessageResponse:
+):
     """发送消息给指定 Agent
 
     通过 A2A 消息总线将消息投递至目标 Agent 的消息队列。
@@ -254,7 +302,7 @@ async def send_agent_message(
         "消息已发送: api → %s (type=%s)", agent_id, body.message_type
     )
 
-    return await _a2a_message_to_response(message)
+    return success_response(await _a2a_message_to_response(message))
 
 
 # ---------------------------------------------------------------------------
