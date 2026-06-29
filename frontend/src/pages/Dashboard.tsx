@@ -12,26 +12,22 @@ import {
   Clock,
   Cpu,
   HardDrive,
+  AlertTriangle,
+  CheckCircle2,
+  Sliders,
 } from 'lucide-react'
 import { useTaskStore, STATUS_COLORS, STATUS_LABELS } from '../stores/taskStore'
 import { useAgentStore, AGENT_STATUS_COLORS, AGENT_STATUS_LABELS } from '../stores/agentStore'
+import { useProviderStore } from '../stores/providerStore'
 import TaskDurationChart from '../components/charts/TaskDurationChart'
 import AgentCallsChart from '../components/charts/AgentCallsChart'
-import apiClient from '../api/client'
-import type { Task } from '../types'
-import type { Agent } from '../types'
-
-function unwrapApiData<T>(body: T | { success: true; data: T }): T {
-  if (
-    body &&
-    typeof body === 'object' &&
-    'success' in body &&
-    body.success === true
-  ) {
-    return body.data
-  }
-  return body as T
-}
+import {
+  fetchDashboardMetrics,
+  type AgentMetric,
+  type SystemMetrics,
+  type TaskDurationMetric,
+} from '../api/metrics'
+import type { Agent, AgentStatus, ProviderConfig, ProviderHealthResult, Task } from '../types'
 
 const STAT_CARDS = [
   {
@@ -57,10 +53,19 @@ const STAT_CARDS = [
   },
 ] as const
 
+const AGENT_SUMMARY_STATUSES: AgentStatus[] = ['busy', 'idle', 'error']
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const { tasks, isLoading: tasksLoading, fetchTasks } = useTaskStore()
   const { agents, isLoading: agentsLoading, fetchAgents, subscribeToAgents } = useAgentStore()
+  const {
+    providers,
+    healthByProviderId,
+    isLoading: providersLoading,
+    error: providerError,
+    fetchProviderSettings,
+  } = useProviderStore()
 
   // SSE 取消订阅函数引用
   const unsubscribeRef = useRef<(() => void) | null>(null)
@@ -68,6 +73,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchTasks()
     fetchAgents()
+    fetchProviderSettings()
     
     // 订阅 Agent 状态 SSE 实时更新
     unsubscribeRef.current = subscribeToAgents()
@@ -76,7 +82,7 @@ export default function Dashboard() {
       unsubscribeRef.current?.()
       unsubscribeRef.current = null
     }
-  }, [fetchTasks, fetchAgents, subscribeToAgents])
+  }, [fetchTasks, fetchAgents, fetchProviderSettings, subscribeToAgents])
 
   const totalTasks = tasks.length
   const runningTasks = tasks.filter((t: Task) => t.status === 'executing').length
@@ -84,6 +90,13 @@ export default function Dashboard() {
   const statValues = { total: totalTasks, running: runningTasks, completed: completedTasks }
 
   const recentAgents = agents.slice(0, 4)
+  const agentStatusCounts = agents.reduce<Record<AgentStatus, number>>(
+    (counts, agent) => {
+      counts[agent.status] += 1
+      return counts
+    },
+    { idle: 0, busy: 0, error: 0 },
+  )
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -118,6 +131,14 @@ export default function Dashboard() {
       </div>
 
       {/* 性能图表 */}
+      <ProviderStatusPanel
+        providers={providers}
+        healthByProviderId={healthByProviderId}
+        loading={providersLoading}
+        error={providerError}
+        onOpenSettings={() => navigate('/settings')}
+      />
+
       <DashboardCharts />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -164,7 +185,27 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="mt-4 divide-y divide-surface-border">
+            <>
+              <div aria-label="Agent summary" className="mt-4">
+                <p className="text-xs font-medium text-neutral-500">Agent summary</p>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {AGENT_SUMMARY_STATUSES.map((status) => (
+                    <div
+                      key={status}
+                      className={`rounded-forge border px-3 py-2 ${AGENT_STATUS_COLORS[status]}`}
+                    >
+                      <p className="text-sm font-semibold tabular-nums">
+                        {agentStatusCounts[status]} {status}
+                      </p>
+                      <p className="mt-0.5 text-xs opacity-80">
+                        {AGENT_STATUS_LABELS[status]}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 divide-y divide-surface-border">
               {recentAgents.map((agent: Agent) => (
                 <div
                   key={agent.id}
@@ -198,7 +239,8 @@ export default function Dashboard() {
                   暂无 Agent
                 </p>
               )}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -265,50 +307,110 @@ export default function Dashboard() {
 // 图表组件
 // ============================================================
 
+function ProviderStatusPanel({
+  providers,
+  healthByProviderId,
+  loading,
+  error,
+  onOpenSettings,
+}: {
+  providers: ProviderConfig[]
+  healthByProviderId: Record<string, ProviderHealthResult>
+  loading: boolean
+  error: string | null
+  onOpenSettings: () => void
+}) {
+  const activeProviders = providers.filter((provider) => provider.isActive)
+  const healthyProviders = activeProviders.filter(
+    (provider) => healthByProviderId[provider.id]?.status === 'healthy',
+  )
+  const needsAttention = activeProviders.length === 0 || healthyProviders.length === 0 || Boolean(error)
+  const attentionMessage = activeProviders.length === 0
+    ? 'No active Provider is configured.'
+    : error || 'No active healthy Provider is available.'
+  const headline = needsAttention ? 'Provider attention required' : 'Providers ready'
+  const Icon = needsAttention ? AlertTriangle : CheckCircle2
+
+  return (
+    <section
+      className={`forge-card !bg-surface-dark animate-slide-up ${
+        needsAttention ? 'border-amber-500/20' : 'border-emerald-500/20'
+      }`}
+      aria-live="polite"
+    >
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <Icon className={`h-5 w-5 ${needsAttention ? 'text-amber-400' : 'text-emerald-400'}`} />
+            <h3 className="text-base font-semibold text-white">{headline}</h3>
+          </div>
+          <p className="mt-1 text-sm text-neutral-400">
+            {loading ? 'Loading Provider status...' : needsAttention ? attentionMessage : `${healthyProviders.length} active Provider`}
+          </p>
+          {activeProviders.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {activeProviders.slice(0, 4).map((provider) => {
+                const health = healthByProviderId[provider.id]?.status ?? 'unknown'
+                const isHealthy = health === 'healthy'
+                return (
+                  <span
+                    key={provider.id}
+                    className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs ${
+                      isHealthy
+                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                        : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
+                    }`}
+                  >
+                    <span>{provider.displayName}</span>
+                    <span className="font-mono">{provider.defaultModel || provider.providerType}</span>
+                    <span>{health}</span>
+                  </span>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="forge-btn-secondary inline-flex shrink-0 items-center justify-center gap-2"
+        >
+          <Sliders className="h-4 w-4" />
+          Provider Settings
+        </button>
+      </div>
+    </section>
+  )
+}
+
 function DashboardCharts() {
-  const [taskMetrics, setTaskMetrics] = useState<{ time: string; duration: number; count: number }[]>([])
-  const [agentMetrics, setAgentMetrics] = useState<{ name: string; calls: number; avgDuration: number }[]>([])
-  const [sysMetrics, setSysMetrics] = useState({ cpuUsage: 0, memoryUsage: 0, activeTasks: 0, totalRequests: 0 })
+  const [taskMetrics, setTaskMetrics] = useState<TaskDurationMetric[]>([])
+  const [agentMetrics, setAgentMetrics] = useState<AgentMetric[]>([])
+  const [sysMetrics, setSysMetrics] = useState<SystemMetrics>({
+    cpuUsage: 0,
+    memoryUsage: 0,
+    activeTasks: 0,
+    totalRequests: 0,
+  })
   const [loading, setLoading] = useState(true)
+  const [metricsError, setMetricsError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchMetrics() {
       try {
-        const [taskRes, agentRes, sysRes] = await Promise.all([
-          apiClient.get('/metrics/tasks?range_hours=24'),
-          apiClient.get('/metrics/agents'),
-          apiClient.get('/metrics/system'),
-        ])
+        setMetricsError(null)
+        const metrics = await fetchDashboardMetrics()
 
         // 任务指标
-        const td = unwrapApiData(
-          taskRes.data as { timestamps: string[]; durations: number[]; counts: number[] } |
-            { success: true; data: { timestamps: string[]; durations: number[]; counts: number[] } }
-        )
-        setTaskMetrics(
-          td.timestamps.map((t, i) => ({
-            time: t,
-            duration: td.durations[i] || 0,
-            count: td.counts[i] || 0,
-          }))
-        )
+        setTaskMetrics(metrics.taskMetrics)
 
         // Agent 指标
-        const ad = unwrapApiData(
-          agentRes.data as { name: string; calls: number; avgDuration: number }[] |
-            { success: true; data: { name: string; calls: number; avgDuration: number }[] }
-        )
-        if (Array.isArray(ad)) {
-          setAgentMetrics(ad)
-        }
+        setAgentMetrics(metrics.agentMetrics)
 
         // 系统指标
-        const sd = unwrapApiData(
-          sysRes.data as { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number } |
-            { success: true; data: { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number } }
-        )
-        setSysMetrics(sd)
+        setSysMetrics(metrics.systemMetrics)
       } catch (err) {
+        setMetricsError('Metrics unavailable')
         // 后端不可用时保持空数据，开发环境输出调试信息
         if (import.meta.env.DEV) {
           console.warn('[Dashboard] 指标数据获取失败:', err)
@@ -324,6 +426,18 @@ function DashboardCharts() {
     <div className="space-y-6 animate-slide-up">
       {/* 系统资源面板 */}
       <SystemPanel metrics={sysMetrics} loading={loading} />
+
+      {metricsError && (
+        <div className="forge-card !bg-surface-dark border-red-500/20">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <h3 className="text-base font-semibold text-white">{metricsError}</h3>
+          </div>
+          <p className="mt-1 text-sm text-neutral-400">
+            Metrics could not be loaded. Dashboard navigation remains available.
+          </p>
+        </div>
+      )}
 
       {/* 图表 */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -359,7 +473,7 @@ function DashboardCharts() {
 // 系统资源面板
 // ============================================================
 
-function SystemPanel({ metrics, loading }: { metrics: { cpuUsage: number; memoryUsage: number; activeTasks: number; totalRequests: number }; loading: boolean }) {
+function SystemPanel({ metrics, loading }: { metrics: SystemMetrics; loading: boolean }) {
   const items = [
     { label: 'CPU', value: metrics.cpuUsage, unit: '%', icon: Cpu, color: 'text-forge-400', barColor: 'bg-forge-500' },
     { label: '内存', value: metrics.memoryUsage, unit: '%', icon: HardDrive, color: 'text-amber-400', barColor: 'bg-amber-500' },

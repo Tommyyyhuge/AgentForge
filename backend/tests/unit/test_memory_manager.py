@@ -402,6 +402,32 @@ class TestEdgeCases:
             assert isinstance(results, list)
 
     @pytest.mark.asyncio
+    async def test_sqlite_write_failure_is_not_swallowed(
+        self, memory_manager: MemoryManager
+    ):
+        """SQLite 降级写入失败时应向调用方暴露错误"""
+
+        class BrokenSession:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            def add(self, _entry):
+                pass
+
+            async def commit(self):
+                raise RuntimeError("database unavailable")
+
+        with patch(
+            "agent_forge.database.connection.async_session",
+            return_value=BrokenSession(),
+        ):
+            with pytest.raises(RuntimeError, match="database unavailable"):
+                await memory_manager.add_long_term("写入失败测试")
+
+    @pytest.mark.asyncio
     async def test_concurrent_add(self, memory_manager: MemoryManager):
         """并发添加短期记忆（验证锁安全性）
 

@@ -137,7 +137,7 @@ class CalculatorTool(BaseTool):
                     f"不支持的一元运算符: {type(node.op).__name__}"
                 )
             operand = self._safe_eval_node(node.operand)
-            return _ALLOWED_OPERATORS[op_type](operand)
+            return _ALLOWED_OPERATORS[op_type_unary](operand)
 
         # 函数调用（允许的安全函数子集）
         if isinstance(node, ast.Call):

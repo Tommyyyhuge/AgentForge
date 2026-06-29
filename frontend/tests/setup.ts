@@ -9,6 +9,8 @@ import '@testing-library/jest-dom'
 import { vi } from 'vitest'
 import type { ReactNode } from 'react'
 
+type MockProps = Record<string, unknown>
+
 // Mock framer-motion — 替换为普通 HTML 元素，方便断言
 vi.mock('framer-motion', () => {
   const Actual = vi.importActual('framer-motion')
@@ -25,8 +27,7 @@ vi.mock('framer-motion', () => {
 })
 
 // Mock reactflow — 流程图测试不需要真实 DOM 渲染
-vi.mock('reactflow', () => {
-  const React = require('react')
+vi.mock('reactflow', async () => {
   return {
     default: () => null,
     ReactFlow: () => null,
@@ -42,41 +43,49 @@ vi.mock('reactflow', () => {
 })
 
 // Mock lucide-react — 拦截所有图标导入
-vi.mock('lucide-react', () => {
-  const React = require('react')
-  const mock: Record<string, any> = { __esModule: true }
+vi.mock('lucide-react', async () => {
+  const React = await import('react')
+  const mock: Record<string, unknown> = { __esModule: true }
   
   // 处理已知图标
   const icons = [
     'X', 'CheckCircle2', 'AlertCircle', 'AlertTriangle', 'Info',
     'Plus', 'Trash2', 'Key', 'Moon', 'Sun', 'Monitor', 'Bot',
     'Loader2', 'Eye', 'EyeOff', 'LogIn', 'UserPlus',
-    'ArrowRight', 'ArrowLeft', 'ListTodo', 'CirclePlay', 'CircleCheck',
+    'ArrowRight', 'ArrowLeft', 'ListTodo', 'Circle', 'CirclePlay', 'CircleCheck',
     'TrendingUp', 'BarChart3', 'Clock', 'Network', 'List',
-    'RefreshCw', 'Cpu', 'Wifi', 'WifiOff', 'Search', 'Brain',
+    'RefreshCw', 'Cpu', 'HardDrive', 'Wifi', 'WifiOff', 'Search', 'Brain',
     'Zap', 'MessageSquare', 'Wrench', 'Shield', 'User', 'Mail',
-    'Lock', 'Save', 'RotateCcw', 'LogOut', 'Send', 'Sliders',
+    'Lock', 'Save', 'RotateCcw', 'LogOut', 'Send', 'Sliders', 'Play',
   ]
   
   for (const name of icons) {
-    mock[name] = (props: any) => React.createElement('span', { 'data-icon': name.toLowerCase(), ...props })
+    mock[name] = (props: MockProps) => (
+      React.createElement('span', { 'data-icon': name.toLowerCase(), ...props })
+    )
   }
   
   return mock
 })
 
 // Mock recharts（性能图表测试不需要完整渲染）
-vi.mock('recharts', () => {
-  const React = require('react')
+vi.mock('recharts', async () => {
+  const React = await import('react')
   return {
-    LineChart: ({ children }: any) => React.createElement('div', null, children),
-    BarChart: ({ children }: any) => React.createElement('div', null, children),
+    LineChart: ({ children }: { children?: ReactNode }) => (
+      React.createElement('div', null, children)
+    ),
+    BarChart: ({ children }: { children?: ReactNode }) => (
+      React.createElement('div', null, children)
+    ),
     Line: () => null,
     Bar: () => null,
     XAxis: () => null,
     YAxis: () => null,
     CartesianGrid: () => null,
     Tooltip: () => null,
-    ResponsiveContainer: ({ children }: any) => React.createElement('div', null, children),
+    ResponsiveContainer: ({ children }: { children?: ReactNode }) => (
+      React.createElement('div', null, children)
+    ),
   }
 })

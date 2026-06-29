@@ -10,7 +10,7 @@ AgentForge 记忆搜索工具（真实版本）
 - 格式化输出：结构化的搜索结果展示
 """
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from agent_forge.tools.base import BaseTool, ToolSchema
 from agent_forge.utils.logging import get_logger
@@ -140,7 +140,7 @@ class MemorySearchTool(BaseTool):
 
             # 格式化结果
             lines: List[str] = [
-                f"[记忆搜索结果]",
+                "[记忆搜索结果]",
                 f"查询: {query}",
                 f"找到 {len(chunks)} 条相关结果:",
                 "",

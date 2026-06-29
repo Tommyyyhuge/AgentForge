@@ -6,7 +6,6 @@ AgentForge ReAct 循环引擎模块
 """
 import asyncio
 import json
-import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -144,8 +143,6 @@ class ReActLoop:
             ]
 
             # 调用 LLM
-            start_time = time.time()
-
             try:
                 response: LLMResponse = await self.llm_router.route(
                     messages=messages,
@@ -162,7 +159,6 @@ class ReActLoop:
                 )
                 return
 
-            elapsed = int((time.time() - start_time) * 1000)
             content = response.content
 
             # 解析 LLM 输出

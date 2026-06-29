@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useTaskStore } from '../../src/stores/taskStore'
+import { STEP_TYPE_COLORS, STEP_TYPE_LABELS, useTaskStore } from '../../src/stores/taskStore'
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -28,6 +28,7 @@ describe('taskStore API contract', () => {
       steps: [],
       isLoading: false,
       error: null,
+      streamStatus: 'disconnected',
     })
   })
 
@@ -59,6 +60,132 @@ describe('taskStore API contract', () => {
       createdAt: '2026-06-26T01:00:00Z',
       updatedAt: '2026-06-26T01:01:00Z',
     })
+  })
+
+  it('uses PRD Step type values as timeline labels and color keys', () => {
+    const stepTypes = ['thought', 'action', 'observation', 'final', 'error'] as const
+
+    expect(Object.keys(STEP_TYPE_LABELS).sort()).toEqual([...stepTypes].sort())
+    expect(Object.keys(STEP_TYPE_COLORS).sort()).toEqual([...stepTypes].sort())
+    expect(STEP_TYPE_LABELS).toEqual({
+      thought: 'thought',
+      action: 'action',
+      observation: 'observation',
+      final: 'final',
+      error: 'error',
+    })
+  })
+
+  it('sorts persisted Task detail steps by timeline order', async () => {
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          id: 'task-1',
+          title: 'Plan',
+          description: 'Plan the work',
+          status: 'executing',
+          created_at: '2026-06-26T01:00:00Z',
+          updated_at: '2026-06-26T01:01:00Z',
+          steps: [
+            {
+              id: 'step-3',
+              task_id: 'task-1',
+              step_number: 3,
+              step_type: 'final',
+              content: 'Finished',
+            },
+            {
+              id: 'step-1',
+              task_id: 'task-1',
+              step_number: 1,
+              step_type: 'thought',
+              content: 'Plan first',
+            },
+            {
+              id: 'step-2',
+              task_id: 'task-1',
+              step_number: 2,
+              step_type: 'action',
+              content: 'Act second',
+            },
+          ],
+        },
+      },
+    })
+
+    await useTaskStore.getState().fetchTaskDetail('task-1')
+
+    expect(useTaskStore.getState().steps.map((step) => step.id)).toEqual([
+      'step-1',
+      'step-2',
+      'step-3',
+    ])
+  })
+
+  it('keeps SSE step updates sorted when an existing Step order changes', () => {
+    mocks.createSSEConnection.mockReturnValue({ close: vi.fn() })
+    useTaskStore.setState({
+      steps: [
+        {
+          id: 'step-1',
+          taskId: 'task-1',
+          order: 1,
+          action: 'Started',
+          stepType: 'thought',
+          status: 'completed',
+        },
+        {
+          id: 'step-2',
+          taskId: 'task-1',
+          order: 2,
+          action: 'Acted',
+          stepType: 'action',
+          status: 'completed',
+        },
+      ],
+    })
+
+    useTaskStore.getState().subscribeToTask('task-1')
+    const config = mocks.createSSEConnection.mock.calls[0][1]
+
+    config.onMessage({
+      type: 'step_update',
+      step: {
+        id: 'step-1',
+        task_id: 'task-1',
+        step_number: 3,
+        step_type: 'observation',
+        content: 'Observed later',
+      },
+    })
+
+    expect(useTaskStore.getState().steps.map((step) => step.id)).toEqual([
+      'step-2',
+      'step-1',
+    ])
+  })
+
+  it('tracks Task stream connection status', () => {
+    const close = vi.fn()
+    mocks.createSSEConnection.mockReturnValue({ close })
+
+    const unsubscribe = useTaskStore.getState().subscribeToTask('task-1')
+    const config = mocks.createSSEConnection.mock.calls[0][1]
+
+    expect(useTaskStore.getState().streamStatus).toBe('connecting')
+
+    config.onOpen()
+    expect(useTaskStore.getState().streamStatus).toBe('connected')
+
+    config.onError(new Event('error'))
+    expect(useTaskStore.getState().streamStatus).toBe('disconnected')
+
+    config.onOpen()
+    unsubscribe()
+
+    expect(close).toHaveBeenCalled()
+    expect(useTaskStore.getState().streamStatus).toBe('disconnected')
   })
 
   it('normalizes task SSE step and done events', () => {

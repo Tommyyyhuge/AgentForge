@@ -19,7 +19,7 @@ describe('Loading', () => {
     // 应该有 3 个骨架条
     const skeletons = document.querySelectorAll('.animate-pulse, [class*="rounded"]')
     // 简单检查至少有内容渲染
-    expect(document.querySelectorAll('.rounded').length).toBeGreaterThan(0)
+    expect(skeletons.length).toBeGreaterThan(0)
   })
 
   it('variant=overlay 渲染全屏遮罩', () => {

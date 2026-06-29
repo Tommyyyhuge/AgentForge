@@ -392,6 +392,7 @@ class MemoryManager:
 
         except Exception as exc:
             logger.error("SQLite fallback add failed: %s", exc)
+            raise
 
     async def search_long_term(
         self,

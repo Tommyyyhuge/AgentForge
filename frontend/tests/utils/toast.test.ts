@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setToastCallback, toast } from '../../src/utils/toast'
+import { setToastCallback, toast, type ToastOptions } from '../../src/utils/toast'
 
 describe('toast', () => {
-  let callback: any
+  let callback: ReturnType<typeof vi.fn<(options: ToastOptions) => void>>
 
   beforeEach(() => {
     callback = vi.fn()

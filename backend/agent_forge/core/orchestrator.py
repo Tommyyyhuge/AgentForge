@@ -207,8 +207,10 @@ class Orchestrator:
                     step_type=StepType.FINAL,
                     content=(
                         f"反思报告: {report.summary}\n\n"
-                        f"**优点**: {', '.join(report.strengths) if report.strengths else '无'}\n\n"
-                        f"**改进**: {', '.join(report.suggestions) if report.suggestions else '无'}\n\n"
+                        f"**优点**: "
+                        f"{', '.join(report.strengths) if report.strengths else '无'}\n\n"
+                        f"**改进**: "
+                        f"{', '.join(report.suggestions) if report.suggestions else '无'}\n\n"
                         f"**学到**: {report.learned}"
                     ),
                 )

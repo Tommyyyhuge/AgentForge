@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, type FormEvent } from 'react'
+import { useState, useCallback, useEffect, useMemo, type FormEvent } from 'react'
 import {
   Key,
   Moon,
@@ -20,10 +20,23 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useAuthStore } from '../stores/authStore'
+import { useProviderStore } from '../stores/providerStore'
 import { useTheme } from '../hooks/useTheme'
 import apiClient from '../api/client'
+import { toApiKey, unwrapApiData, type ApiKeyPayload } from '../api/apiKeys'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
+import type {
+  ApiKey,
+  ApiResponse,
+  CreateProviderFromPresetInput,
+  CreateRelayProviderInput,
+  ProviderCapabilities,
+  ProviderConfig,
+  ProviderModelsResult,
+  ProviderPreset,
+  ProviderType,
+} from '../types'
 
 // ============================================================
 // 本地类型
@@ -363,6 +376,8 @@ export default function Settings() {
         )}
       </section>
 
+      <ProviderSettingsSection />
+
       <form onSubmit={handleSave} className="space-y-6">
         <APIKeySection />
         <section className="forge-card !bg-surface-dark space-y-4">
@@ -480,34 +495,437 @@ export default function Settings() {
 // API Key 管理组件
 // ============================================================
 
-interface ServerKey {
-  id: string
-  provider: string
-  masked_key: string
-  permission: string
-  usage_count: number
-  created_at: string
+type ProviderFormState = CreateRelayProviderInput & {
+  providerType: ProviderType
+  capabilities: ProviderCapabilities
 }
 
-interface ApiEnvelope<T> {
-  success: true
-  data: T
+const RELAY_PROVIDER_CAPABILITIES: ProviderCapabilities = {
+  chat: true,
+  streaming: false,
+  tool_calling: false,
+  json_mode: false,
+  vision: false,
+  embeddings: false,
+  model_listing: false,
+  usage_reporting: false,
 }
 
-function unwrapApiData<T>(body: T | ApiEnvelope<T>): T {
-  if (
-    body &&
-    typeof body === 'object' &&
-    'success' in body &&
-    body.success === true
-  ) {
-    return body.data
-  }
-  return body as T
+const FALLBACK_RELAY_PRESET: ProviderPreset = {
+  providerType: 'openai_compatible',
+  displayName: 'OpenAI-compatible relay',
+  implementationStatus: 'implemented',
+  authType: 'api_key_bearer',
+  capabilities: RELAY_PROVIDER_CAPABILITIES,
+  aliases: [],
+  isRelay: true,
+}
+
+const CAPABILITY_LABELS: Array<[keyof ProviderCapabilities, string]> = [
+  ['chat', 'Chat'],
+  ['streaming', 'Streaming'],
+  ['tool_calling', 'Tools'],
+  ['json_mode', 'JSON'],
+  ['vision', 'Vision'],
+  ['embeddings', 'Embeddings'],
+  ['model_listing', 'Models'],
+  ['usage_reporting', 'Usage'],
+]
+
+const DEFAULT_PROVIDER_FORM: ProviderFormState = {
+  providerType: 'openai_compatible',
+  displayName: '',
+  baseUrl: '',
+  apiKey: '',
+  defaultModel: '',
+  capabilities: RELAY_PROVIDER_CAPABILITIES,
+  streamingEnabled: false,
+  toolCallingEnabled: false,
+  timeoutSeconds: 60,
+}
+
+function ProviderSettingsSection() {
+  const {
+    presets,
+    providers,
+    modelsByProviderId,
+    healthByProviderId,
+    isLoading,
+    isSaving,
+    testingProviderId,
+    error,
+    validationError,
+    fetchProviderSettings,
+    createRelayProvider,
+    createProviderFromPreset,
+    testProviderConfig,
+    loadProviderModels,
+    deleteProviderConfig,
+    clearError,
+  } = useProviderStore()
+  const [form, setForm] = useState<ProviderFormState>(DEFAULT_PROVIDER_FORM)
+
+  useEffect(() => {
+    void fetchProviderSettings()
+  }, [fetchProviderSettings])
+
+  const selectablePresets = useMemo(() => {
+    const implementedPresets = presets.filter((preset) => preset.implementationStatus === 'implemented')
+    return implementedPresets.length > 0 ? implementedPresets : [FALLBACK_RELAY_PRESET]
+  }, [presets])
+
+  const selectedPreset = selectablePresets.find((preset) => preset.providerType === form.providerType)
+
+  const updateForm = useCallback(<K extends keyof ProviderFormState>(
+    key: K,
+    value: ProviderFormState[K],
+  ) => {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    if (error || validationError) clearError()
+  }, [clearError, error, validationError])
+
+  const updateCapabilityToggle = useCallback((
+    capability: 'streaming' | 'tool_calling',
+    checked: boolean,
+  ) => {
+    const enabledKey = capability === 'streaming' ? 'streamingEnabled' : 'toolCallingEnabled'
+    setForm((prev) => ({
+      ...prev,
+      [enabledKey]: checked,
+      capabilities: {
+        ...prev.capabilities,
+        [capability]: checked,
+      },
+    }))
+    if (error || validationError) clearError()
+  }, [clearError, error, validationError])
+
+  const handleProviderTypeChange = useCallback((providerType: ProviderType) => {
+    const preset = selectablePresets.find((candidate) => candidate.providerType === providerType)
+    if (!preset) return
+
+    setForm((prev) => ({
+      ...prev,
+      providerType,
+      displayName: preset.displayName,
+      baseUrl: preset.baseUrl ?? '',
+      defaultModel: preset.defaultModel ?? '',
+      capabilities: { ...preset.capabilities },
+      streamingEnabled: preset.capabilities.streaming,
+      toolCallingEnabled: preset.capabilities.tool_calling,
+    }))
+    if (error || validationError) clearError()
+  }, [clearError, error, selectablePresets, validationError])
+
+  const handleSaveProvider = useCallback(async () => {
+    if (form.providerType === 'openai_compatible') {
+      await createRelayProvider({
+        displayName: form.displayName,
+        baseUrl: form.baseUrl,
+        apiKey: form.apiKey,
+        defaultModel: form.defaultModel,
+        streamingEnabled: form.streamingEnabled,
+        toolCallingEnabled: form.toolCallingEnabled,
+        timeoutSeconds: form.timeoutSeconds,
+      })
+      return
+    }
+
+    const providerFromPreset: CreateProviderFromPresetInput = {
+      providerType: form.providerType,
+      displayName: form.displayName,
+      baseUrl: form.baseUrl || undefined,
+      apiKey: form.apiKey,
+      defaultModel: form.defaultModel,
+      capabilities: form.capabilities,
+      streamingEnabled: form.streamingEnabled,
+      toolCallingEnabled: form.toolCallingEnabled,
+      timeoutSeconds: form.timeoutSeconds,
+    }
+    await createProviderFromPreset(providerFromPreset)
+  }, [createProviderFromPreset, createRelayProvider, form])
+
+  return (
+    <section className="forge-card !bg-surface-dark space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Sliders className="h-5 w-5 text-forge-400" />
+          <h3 className="text-base font-semibold text-white">Provider Configuration</h3>
+        </div>
+        {selectedPreset && (
+          <span className="rounded-forge border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-400">
+            {selectedPreset.displayName}
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-forge border border-surface-border bg-white/[0.02] px-4 py-3 text-sm text-neutral-400">
+          Loading Provider settings...
+        </div>
+      ) : error ? (
+        <div className="flex items-center gap-2 rounded-forge border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : providers.length > 0 ? (
+        <div className="space-y-2">
+          {providers.map((provider) => (
+            <ProviderConfigRow
+              key={provider.id}
+              provider={provider}
+              health={healthByProviderId[provider.id]}
+              models={modelsByProviderId[provider.id]}
+              isTesting={testingProviderId === provider.id}
+              onTest={(modelId) => testProviderConfig(provider.id, modelId || provider.defaultModel)}
+              onLoadModels={() => loadProviderModels(provider.id)}
+              onDelete={() => deleteProviderConfig(provider.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-forge border border-dashed border-surface-border bg-white/[0.02] px-4 py-3 text-sm text-neutral-400">
+          No Provider configs yet.
+        </div>
+      )}
+
+      <div className="grid gap-4 rounded-forge border border-surface-border bg-white/[0.02] p-4 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor="provider-type" className="text-sm font-medium text-neutral-300">
+            Provider type
+          </label>
+          <select
+            id="provider-type"
+            value={form.providerType}
+            onChange={(event) => handleProviderTypeChange(event.target.value as ProviderType)}
+            className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white outline-none focus:border-forge-500"
+          >
+            {selectablePresets.map((preset) => (
+              <option key={preset.providerType} value={preset.providerType}>
+                {preset.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="provider-display-name" className="text-sm font-medium text-neutral-300">
+            Display name
+          </label>
+          <input
+            id="provider-display-name"
+            type="text"
+            value={form.displayName}
+            onChange={(event) => updateForm('displayName', event.target.value)}
+            className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white outline-none focus:border-forge-500"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="provider-base-url" className="text-sm font-medium text-neutral-300">
+            Base URL
+          </label>
+          <input
+            id="provider-base-url"
+            type="url"
+            value={form.baseUrl}
+            onChange={(event) => updateForm('baseUrl', event.target.value)}
+            placeholder="https://relay.example/v1"
+            className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-neutral-600 focus:border-forge-500"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="provider-api-key" className="text-sm font-medium text-neutral-300">
+            API Key
+          </label>
+          <input
+            id="provider-api-key"
+            type="password"
+            value={form.apiKey}
+            onChange={(event) => updateForm('apiKey', event.target.value)}
+            placeholder="sk-..."
+            className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 font-mono text-sm text-white outline-none placeholder:text-neutral-600 focus:border-forge-500"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="provider-default-model" className="text-sm font-medium text-neutral-300">
+            Default model
+          </label>
+          <input
+            id="provider-default-model"
+            type="text"
+            value={form.defaultModel}
+            onChange={(event) => updateForm('defaultModel', event.target.value)}
+            className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 font-mono text-sm text-white outline-none focus:border-forge-500"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-neutral-300">
+          <input
+            type="checkbox"
+            checked={form.streamingEnabled}
+            onChange={(event) => updateCapabilityToggle('streaming', event.target.checked)}
+            className="h-4 w-4 accent-forge-500"
+          />
+          Streaming
+        </label>
+        <label className="flex items-center gap-2 text-sm text-neutral-300">
+          <input
+            type="checkbox"
+            checked={form.toolCallingEnabled}
+            onChange={(event) => updateCapabilityToggle('tool_calling', event.target.checked)}
+            className="h-4 w-4 accent-forge-500"
+          />
+          Tool calling
+        </label>
+        <div className="flex flex-wrap gap-1.5 md:col-span-2">
+          {CAPABILITY_LABELS.map(([capability, label]) => (
+            <span
+              key={capability}
+              className={`rounded border px-2 py-0.5 text-xs ${
+                form.capabilities[capability]
+                  ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
+                  : 'border-surface-border text-neutral-500'
+              }`}
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {validationError && (
+        <p className="text-sm text-red-400">{validationError}</p>
+      )}
+
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        isLoading={isSaving}
+        onClick={handleSaveProvider}
+        leftIcon={<Plus className="h-4 w-4" />}
+      >
+        Save Provider
+      </Button>
+    </section>
+  )
+}
+
+function ProviderConfigRow({
+  provider,
+  health,
+  models,
+  isTesting,
+  onTest,
+  onLoadModels,
+  onDelete,
+}: {
+  provider: ProviderConfig
+  health?: { status: string; errorCode?: string; errorMessage?: string }
+  models?: ProviderModelsResult
+  isTesting: boolean
+  onTest: (modelId?: string) => void
+  onLoadModels: () => void
+  onDelete: () => void
+}) {
+  const healthLabel = health?.status ?? 'unknown'
+  const availableModels = models?.models ?? []
+  const [selectedModel, setSelectedModel] = useState(provider.defaultModel || availableModels[0]?.id || '')
+  const [manualModel, setManualModel] = useState(provider.defaultModel || '')
+  const defaultListedModel = availableModels.find((model) => model.id === provider.defaultModel)?.id
+  const selectedListedModel = availableModels.find((model) => model.id === selectedModel)?.id
+  const selectedModelValue = selectedListedModel || defaultListedModel || availableModels[0]?.id || ''
+  const modelForTest = availableModels.length > 0
+    ? selectedModelValue
+    : manualModel || provider.defaultModel
+
+  return (
+    <div className="rounded-forge border border-surface-border bg-white/[0.02] px-4 py-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-white">{provider.displayName}</p>
+          <p className="truncate font-mono text-xs text-neutral-500">{provider.baseUrl}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded border border-surface-border px-2 py-0.5 text-xs text-neutral-400">
+              {provider.providerType}
+            </span>
+            <span className="rounded border border-surface-border px-2 py-0.5 text-xs text-neutral-400">
+              {provider.defaultModel || 'manual model'}
+            </span>
+            <span className="rounded border border-surface-border px-2 py-0.5 text-xs text-neutral-400">
+              health: {healthLabel}
+            </span>
+          </div>
+          {health?.errorMessage && (
+            <p className="mt-2 text-xs text-red-400">{health.errorMessage}</p>
+          )}
+          {models?.status === 'degraded' && (
+            <p className="mt-2 text-xs text-amber-400">
+              Model listing degraded. Manual model entry is available.
+            </p>
+          )}
+          {availableModels.length > 0 && (
+            <div className="mt-3 max-w-xs space-y-1.5">
+              <label
+                htmlFor={`provider-model-${provider.id}`}
+                className="block text-xs font-medium text-neutral-400"
+              >
+                Model for {provider.displayName}
+              </label>
+              <select
+                id={`provider-model-${provider.id}`}
+                value={selectedModelValue}
+                onChange={(event) => setSelectedModel(event.target.value)}
+                className="w-full rounded-forge border border-surface-border bg-surface-bg px-2 py-1.5 font-mono text-xs text-white outline-none focus:border-forge-500"
+              >
+                {availableModels.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.displayName || model.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {models?.manualEntryAllowed && availableModels.length === 0 && (
+            <div className="mt-3 max-w-xs space-y-1.5">
+              <label
+                htmlFor={`provider-manual-model-${provider.id}`}
+                className="block text-xs font-medium text-neutral-400"
+              >
+                Manual model for {provider.displayName}
+              </label>
+              <input
+                id={`provider-manual-model-${provider.id}`}
+                type="text"
+                value={manualModel}
+                onChange={(event) => setManualModel(event.target.value)}
+                className="w-full rounded-forge border border-surface-border bg-surface-bg px-2 py-1.5 font-mono text-xs text-white outline-none focus:border-forge-500"
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onLoadModels}>
+            Models
+          </Button>
+          <Button type="button" variant="secondary" size="sm" isLoading={isTesting} onClick={() => onTest(modelForTest)}>
+            Test Provider
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={onDelete}
+            aria-label={`Delete Provider ${provider.displayName}`}
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function APIKeySection() {
-  const [keys, setKeys] = useState<ServerKey[]>([])
+  const [keys, setKeys] = useState<ApiKey[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ provider: 'kimi', api_key: '', permission: 'write' })
   const [isLoading, setIsLoading] = useState(false)
@@ -519,8 +937,8 @@ function APIKeySection() {
 
   async function loadKeys() {
     try {
-      const res = await apiClient.get<ApiEnvelope<ServerKey[]> | ServerKey[]>('/keys')
-      setKeys(unwrapApiData(res.data) || [])
+      const res = await apiClient.get<ApiResponse<ApiKeyPayload[]> | ApiKeyPayload[]>('/keys')
+      setKeys((unwrapApiData(res.data) || []).map(toApiKey))
     } catch {
       // 后端不可用时静默处理
     }
@@ -583,9 +1001,9 @@ function APIKeySection() {
                 <p className="text-sm font-medium text-white">
                   {providerLabel[key.provider] || key.provider}
                 </p>
-                <p className="text-xs text-neutral-400 font-mono">{key.masked_key}</p>
+                <p className="text-xs text-neutral-400 font-mono">{key.maskedKey}</p>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
-                  {key.permission} · 已用 {key.usage_count} 次
+                  {key.permission} · 已用 {key.usageCount} 次
                 </p>
               </div>
               <button

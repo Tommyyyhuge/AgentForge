@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Agent, AgentRole, AgentStatus, ApiResponse } from '../types'
 import apiClient, { createSSEConnection } from '../api/client'
+import { toAgent, unwrapApiData } from '../api/agents'
 
 // ============================================================
 // 状态标签 & 颜色映射（被页面组件直接引用）
@@ -73,78 +74,9 @@ const MOCK_AGENTS: Agent[] = [
   },
 ]
 
-// ============================================================
-// 辅助函数
-// ============================================================
-
-function extractData<T>(response: { data: ApiResponse<T> | T }): T {
-  const body = response.data
-  if (
-    body &&
-    typeof body === 'object' &&
-    'success' in body &&
-    body.success === true
-  ) {
-    return body.data
-  }
-  return body as T
-}
-
 function isNetworkError(error: unknown): boolean {
   return error instanceof Error &&
     (error.message.includes('无法连接') || error.message.includes('网络'))
-}
-
-type RawRecord = Record<string, unknown>
-
-function asRecord(value: unknown): RawRecord {
-  return value && typeof value === 'object' ? value as RawRecord : {}
-}
-
-function pickString(record: RawRecord, keys: string[], fallback = ''): string {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'string') return value
-  }
-  return fallback
-}
-
-function normalizeAgentRole(value: unknown): AgentRole {
-  if (
-    value === 'researcher' ||
-    value === 'coder' ||
-    value === 'writer' ||
-    value === 'reviewer' ||
-    value === 'executor'
-  ) {
-    return value
-  }
-  return 'executor'
-}
-
-function normalizeAgentStatus(value: unknown): AgentStatus {
-  if (value === 'error') return 'error'
-  if (value === 'busy' || value === 'executing' || value === 'thinking') return 'busy'
-  return 'idle'
-}
-
-function normalizeAgent(input: unknown): Agent {
-  const record = asRecord(input)
-  const role = normalizeAgentRole(record.role)
-  const createdAt = pickString(record, ['createdAt', 'created_at'], new Date().toISOString())
-  const updatedAt = pickString(record, ['updatedAt', 'updated_at'], createdAt)
-  const name = pickString(record, ['name'], AGENT_ROLE_LABELS[role])
-
-  return {
-    id: pickString(record, ['id'], `agent-${role}`),
-    name,
-    role,
-    status: normalizeAgentStatus(record.status),
-    description: pickString(record, ['description'], `${name} agent`),
-    model: pickString(record, ['model'], 'configured-llm'),
-    createdAt,
-    updatedAt,
-  }
 }
 
 // ============================================================
@@ -171,7 +103,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
     set({ isLoading: true, error: null })
     try {
       const response = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/agents')
-      const agents = extractData<unknown[]>(response).map(normalizeAgent)
+      const agents = unwrapApiData(response.data).map(toAgent)
       set({ agents, isLoading: false })
     } catch (err) {
       // API 不可达时降级为 mock 数据
@@ -205,7 +137,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
           }
 
           if (event.type === 'agent_update' && event.agent) {
-            const nextAgent = normalizeAgent(event.agent)
+            const nextAgent = toAgent(event.agent)
             set((s) => {
               const idx = s.agents.findIndex((a) => a.id === nextAgent.id)
               if (idx >= 0) {

@@ -9,11 +9,19 @@ from contextlib import asynccontextmanager
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from agent_forge.api.routes import tasks_router, agents_router, auth_router, metrics_router, keys_router
+from agent_forge.api.responses import error_response
+from agent_forge.api.routes import (
+    tasks_router,
+    agents_router,
+    auth_router,
+    metrics_router,
+    keys_router,
+    providers_router,
+)
 from agent_forge.config.settings import settings
 from agent_forge.core.error_handler import AppException
 from agent_forge.database.connection import init_db, close_db
@@ -80,7 +88,27 @@ async def app_exception_handler(request, exc: AppException):
     logger.error(f"应用异常: {exc.code} - {exc.message}")
     return JSONResponse(
         status_code=exc.status_code,
-        content=exc.to_dict()
+        content=error_response(
+            code=exc.code.value,
+            message=exc.message,
+            details=exc.details,
+        )
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    """处理 FastAPI HTTPException 并返回标准错误 envelope"""
+    message = exc.detail if isinstance(exc.detail, str) else "请求失败"
+    details = {} if isinstance(exc.detail, str) else {"detail": exc.detail}
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_response(
+            code=f"HTTP_{exc.status_code}",
+            message=message,
+            details=details,
+        ),
+        headers=exc.headers,
     )
 
 
@@ -90,12 +118,11 @@ async def general_exception_handler(request, exc: Exception):
     logger.error(f"未捕获异常: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={
-            "code": "10000",
-            "message": "服务器内部错误",
-            "details": {"error": str(exc)} if settings.DEBUG else {},
-            "status_code": 500
-        }
+        content=error_response(
+            code="10000",
+            message="服务器内部错误",
+            details={"error": str(exc)} if settings.DEBUG else {},
+        )
     )
 
 
@@ -122,6 +149,7 @@ app.include_router(agents_router, prefix="/api/v1/agents", tags=["agents"])
 app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
 app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
 app.include_router(keys_router, prefix="/api/v1", tags=["keys"])
+app.include_router(providers_router, prefix="/api/v1", tags=["providers"])
 
 
 if __name__ == "__main__":

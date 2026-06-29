@@ -70,6 +70,232 @@ export interface AgentMessage {
   metadata?: Record<string, unknown>
 }
 
+// ---------- 用户与 API Key 类型 ----------
+/** 认证用户 */
+export interface User {
+  id: string
+  username: string
+  email: string
+}
+
+/** API Key 权限 */
+export type ApiKeyPermission = 'read' | 'write' | 'admin'
+
+/** API Key 前端领域对象。明文 key 不进入该类型。 */
+export interface ApiKey {
+  id: string
+  provider: string
+  maskedKey: string
+  permission: ApiKeyPermission
+  usageCount: number
+  isActive: boolean
+  createdAt: string
+  lastUsedAt?: string
+}
+
+// ---------- Memory types ----------
+export type MemoryType = 'long_term' | 'external'
+
+export const MEMORY_TYPES = ['long_term', 'external'] as const
+
+export interface Memory {
+  id: string
+  content: string
+  memoryType: MemoryType
+  agentId?: string
+  agentRole?: AgentRole
+  taskId?: string
+  source?: string
+  metadata: Record<string, unknown>
+  createdAt: string
+}
+
+// ---------- Provider types ----------
+export type ProviderType =
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'deepseek'
+  | 'moonshot'
+  | 'dashscope'
+  | 'zhipu'
+  | 'qianfan'
+  | 'hunyuan'
+  | 'minimax'
+  | 'openai_compatible'
+
+export const PROVIDER_TYPES = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'deepseek',
+  'moonshot',
+  'dashscope',
+  'zhipu',
+  'qianfan',
+  'hunyuan',
+  'minimax',
+  'openai_compatible',
+] as const
+
+export type ProviderAuthType = 'api_key_bearer' | 'api_key_header' | 'none'
+
+export type ProviderCapability =
+  | 'chat'
+  | 'streaming'
+  | 'tool_calling'
+  | 'json_mode'
+  | 'vision'
+  | 'embeddings'
+  | 'model_listing'
+  | 'usage_reporting'
+
+export const PROVIDER_CAPABILITIES = [
+  'chat',
+  'streaming',
+  'tool_calling',
+  'json_mode',
+  'vision',
+  'embeddings',
+  'model_listing',
+  'usage_reporting',
+] as const
+
+export type ProviderCapabilities = Record<ProviderCapability, boolean>
+
+export type ProviderHealthStatus =
+  | 'unknown'
+  | 'healthy'
+  | 'degraded'
+  | 'unhealthy'
+
+export const PROVIDER_HEALTH_STATUSES = [
+  'unknown',
+  'healthy',
+  'degraded',
+  'unhealthy',
+] as const
+
+export interface ProviderConfig {
+  id: string
+  providerType: ProviderType
+  displayName: string
+  baseUrl?: string
+  authType: ProviderAuthType
+  apiKeyId?: string
+  defaultModel?: string
+  capabilities: ProviderCapabilities
+  timeoutSeconds: number
+  rateLimitPolicy: Record<string, unknown>
+  streamingEnabled: boolean
+  toolCallingEnabled: boolean
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ProviderImplementationStatus = 'implemented' | 'planned'
+
+export interface ProviderPreset {
+  providerType: ProviderType
+  displayName: string
+  baseUrl?: string
+  defaultModel?: string
+  implementationStatus: ProviderImplementationStatus
+  officialDocsUrl?: string
+  authType: ProviderAuthType
+  capabilities: ProviderCapabilities
+  aliases: string[]
+  isRelay: boolean
+}
+
+export interface ProviderModel {
+  id: string
+  displayName?: string
+}
+
+export interface ProviderErrorSummary {
+  code: string
+  message: string
+  retryable: boolean
+  details: Record<string, unknown>
+}
+
+export interface ProviderHealthResult {
+  status: ProviderHealthStatus
+  latencyMs?: number
+  errorCode?: string
+  errorMessage?: string
+  modelTested?: string
+}
+
+export interface ProviderModelsResult {
+  status: 'available' | 'degraded'
+  models: ProviderModel[]
+  manualEntryAllowed: boolean
+  error?: ProviderErrorSummary | null
+}
+
+export interface CreateRelayProviderInput {
+  displayName: string
+  baseUrl: string
+  apiKey: string
+  defaultModel: string
+  streamingEnabled: boolean
+  toolCallingEnabled: boolean
+  timeoutSeconds?: number
+}
+
+export interface CreateProviderConfigInput {
+  providerType: ProviderType
+  displayName: string
+  baseUrl?: string
+  apiKeyId: string
+  defaultModel?: string
+  capabilities: ProviderCapabilities
+  streamingEnabled: boolean
+  toolCallingEnabled: boolean
+  timeoutSeconds?: number
+}
+
+export interface CreateProviderFromPresetInput {
+  providerType: ProviderType
+  displayName: string
+  baseUrl?: string
+  apiKey: string
+  defaultModel: string
+  capabilities: ProviderCapabilities
+  streamingEnabled: boolean
+  toolCallingEnabled: boolean
+  timeoutSeconds?: number
+}
+
+export interface ModelConfig {
+  id: string
+  providerId: string
+  modelId: string
+  displayName?: string
+  contextWindow?: number
+  supportsStreaming?: boolean
+  supportsToolCalling?: boolean
+  supportsJsonMode?: boolean
+  supportsVision?: boolean
+  supportsEmbeddings?: boolean
+  isDefault: boolean
+  isActive: boolean
+}
+
+export interface ProviderHealthCheck {
+  id: string
+  providerId: string
+  status: ProviderHealthStatus
+  checkedAt: string
+  latencyMs?: number
+  errorCode?: string
+  errorMessage?: string
+  modelTested?: string
+}
+
 // ---------- 任务类型 ----------
 /** 任务状态 */
 export type TaskStatus =
@@ -82,6 +308,9 @@ export type TaskStatus =
 
 /** 任务优先级 */
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
+
+/** Step 类型 */
+export type StepType = 'thought' | 'action' | 'observation' | 'final' | 'error'
 
 /** 任务实体 */
 export interface Task {
@@ -106,11 +335,50 @@ export interface TaskStep {
   taskId: string
   order: number
   action: string
+  stepType: StepType
   status: 'pending' | 'running' | 'completed' | 'failed'
   result?: string
   agentId?: string
   startedAt?: string
   completedAt?: string
+}
+
+// ---------- Metrics types ----------
+export interface MetricPoint {
+  time: string
+  value: number
+  label?: string
+}
+
+export interface TaskMetricsPayload {
+  timestamps?: string[]
+  durations?: number[]
+  counts?: number[]
+}
+
+export interface TaskDurationMetric {
+  time: string
+  duration: number
+  count: number
+}
+
+export interface AgentMetric {
+  name: string
+  calls: number
+  avgDuration: number
+}
+
+export interface SystemMetrics {
+  cpuUsage: number
+  memoryUsage: number
+  activeTasks: number
+  totalRequests: number
+}
+
+export interface DashboardMetrics {
+  taskMetrics: TaskDurationMetric[]
+  agentMetrics: AgentMetric[]
+  systemMetrics: SystemMetrics
 }
 
 // ---------- 工具/协议类型 ----------

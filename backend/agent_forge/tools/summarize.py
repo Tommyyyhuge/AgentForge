@@ -5,7 +5,7 @@ AgentForge 文本摘要工具模块
 短文本自动跳过，长文本调用 LLM 进行智能摘要。
 """
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from agent_forge.core.llm_client import LLMRouter
 from agent_forge.tools.base import BaseTool, ToolSchema

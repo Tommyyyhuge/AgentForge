@@ -4,12 +4,12 @@ AgentForge 性能指标服务
 提供系统性能指标的计算和聚合功能。
 """
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agent_forge.database.models import AgentStateORM, StepORM, TaskORM
+from agent_forge.database.models import StepORM, TaskORM
 from agent_forge.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,7 +23,9 @@ class MetricsService:
     """
     
     @staticmethod
-    async def get_task_metrics(db: AsyncSession, range_hours: int = 24) -> Dict:
+    async def get_task_metrics(
+        db: AsyncSession, range_hours: int = 24
+    ) -> Dict[str, List[Any]]:
         """获取任务执行时间趋势
         
         Args:
@@ -63,12 +65,13 @@ class MetricsService:
                     TaskORM.updated_at.is_not(None)
                 )
             )
-            row = result.one_or_none()
+            row = result.mappings().one()
             
             timestamps.append(interval_start.strftime("%H:%M"))
-            counts.append(row.count or 0)
+            counts.append(row["count"] or 0)
             # avg_duration 是天数，转换为毫秒
-            durations.append(round((row.avg_duration or 0) * 24 * 3600 * 1000))
+            avg_duration = row["avg_duration"] or 0
+            durations.append(round(avg_duration * 24 * 3600 * 1000))
         
         return {
             "timestamps": timestamps,

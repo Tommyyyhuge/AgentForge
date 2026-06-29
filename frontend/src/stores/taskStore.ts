@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import type { Task, TaskStatus, TaskPriority, ApiResponse } from '../types'
+import type { Task, TaskStatus, TaskPriority, ApiResponse, TaskStep } from '../types'
 import apiClient, { createSSEConnection } from '../api/client'
+import { toTask, toTaskStatus, toTaskStep, unwrapApiData } from '../api/tasks'
 
 // ============================================================
 // 展示类型（用于时间线视觉区分）
@@ -8,18 +9,9 @@ import apiClient, { createSSEConnection } from '../api/client'
 
 export type StepDisplayType = 'thought' | 'action' | 'observation' | 'final' | 'error'
 
-export interface StepWithDisplay {
-  id: string
-  taskId: string
-  order: number
-  action: string
-  stepType: StepDisplayType
-  status: 'pending' | 'running' | 'completed' | 'failed'
-  result?: string
-  agentId?: string
-  startedAt?: string
-  completedAt?: string
-}
+export type StepWithDisplay = TaskStep
+
+export type TaskStreamStatus = 'connecting' | 'connected' | 'disconnected'
 
 // ============================================================
 // 状态标签 & 颜色映射（被页面组件直接引用）
@@ -52,11 +44,11 @@ export const STEP_TYPE_COLORS: Record<StepDisplayType, string> = {
 }
 
 export const STEP_TYPE_LABELS: Record<StepDisplayType, string> = {
-  thought:     '思考',
-  action:      '行动',
-  observation: '观察',
-  final:       '完成',
-  error:       '错误',
+  thought:     'thought',
+  action:      'action',
+  observation: 'observation',
+  final:       'final',
+  error:       'error',
 }
 
 // ============================================================
@@ -181,123 +173,29 @@ const MOCK_STEPS: StepWithDisplay[] = [
 // API 响应类型（辅助函数内部使用）
 // ============================================================
 
-/** 从 axios / ApiResponse 中提取 data */
-function extractData<T>(response: { data: ApiResponse<T> | T }): T {
-  const body = response.data
-  if (
-    body &&
-    typeof body === 'object' &&
-    'success' in body &&
-    body.success === true
-  ) {
-    return body.data
-  }
-  return body as T
-}
-
 /** 判断是否为后端 API 不可达错误 */
 function isNetworkError(error: unknown): boolean {
   return error instanceof Error &&
     (error.message.includes('无法连接') || error.message.includes('网络'))
 }
 
+function compareTimelineSteps(a: StepWithDisplay, b: StepWithDisplay): number {
+  const orderDelta = a.order - b.order
+  if (orderDelta !== 0) return orderDelta
+
+  const aTime = a.startedAt ?? a.completedAt ?? ''
+  const bTime = b.startedAt ?? b.completedAt ?? ''
+  const timeDelta = aTime.localeCompare(bTime)
+  if (timeDelta !== 0) return timeDelta
+
+  return a.id.localeCompare(b.id)
+}
+
+function sortTimelineSteps(steps: StepWithDisplay[]): StepWithDisplay[] {
+  return [...steps].sort(compareTimelineSteps)
+}
+
 type RawRecord = Record<string, unknown>
-
-function asRecord(value: unknown): RawRecord {
-  return value && typeof value === 'object' ? value as RawRecord : {}
-}
-
-function pickString(record: RawRecord, keys: string[], fallback = ''): string {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'string') return value
-  }
-  return fallback
-}
-
-function pickStringArray(record: RawRecord, keys: string[]): string[] {
-  for (const key of keys) {
-    const value = record[key]
-    if (Array.isArray(value)) {
-      return value.filter((item): item is string => typeof item === 'string')
-    }
-  }
-  return []
-}
-
-function normalizeTaskStatus(value: unknown): TaskStatus {
-  if (value === 'planning' || value === 'executing' || value === 'completed' ||
-      value === 'failed' || value === 'cancelled' || value === 'pending') {
-    return value
-  }
-  if (value === 'running') return 'executing'
-  return 'pending'
-}
-
-function normalizeTask(input: unknown): Task {
-  const record = asRecord(input)
-  const createdAt = pickString(record, ['createdAt', 'created_at'], new Date().toISOString())
-  const updatedAt = pickString(record, ['updatedAt', 'updated_at'], createdAt)
-  const priorityValue = pickString(record, ['priority'], 'medium') as TaskPriority
-
-  return {
-    id: pickString(record, ['id']),
-    title: pickString(record, ['title'], '新任务'),
-    description: pickString(record, ['description']),
-    status: normalizeTaskStatus(record.status),
-    priority: priorityValue,
-    assignedAgents: pickStringArray(record, ['assignedAgents', 'assigned_agents']),
-    dependencies: pickStringArray(record, ['dependencies']),
-    result: pickString(record, ['result', 'output']) || undefined,
-    error: pickString(record, ['error', 'error_message']) || undefined,
-    createdAt,
-    updatedAt,
-    completedAt: pickString(record, ['completedAt', 'completed_at']) || undefined,
-  }
-}
-
-function normalizeStepType(value: unknown): StepDisplayType {
-  if (
-    value === 'thought' ||
-    value === 'action' ||
-    value === 'observation' ||
-    value === 'final' ||
-    value === 'error'
-  ) {
-    return value
-  }
-  return 'action'
-}
-
-function normalizeStep(input: unknown): StepWithDisplay {
-  const record = asRecord(input)
-  const stepType = normalizeStepType(record.stepType ?? record.step_type)
-  const timestamp = pickString(record, ['startedAt', 'timestamp'])
-  const status =
-    record.status === 'pending' || record.status === 'running' ||
-    record.status === 'completed' || record.status === 'failed'
-      ? record.status
-      : stepType === 'error'
-        ? 'failed'
-        : 'completed'
-
-  return {
-    id: pickString(record, ['id']),
-    taskId: pickString(record, ['taskId', 'task_id']),
-    order: typeof record.order === 'number'
-      ? record.order
-      : typeof record.step_number === 'number'
-        ? record.step_number
-        : 0,
-    action: pickString(record, ['action', 'content']),
-    stepType,
-    status,
-    result: pickString(record, ['result', 'tool_output']) || undefined,
-    agentId: pickString(record, ['agentId', 'agent_id']) || undefined,
-    startedAt: timestamp || undefined,
-    completedAt: pickString(record, ['completedAt', 'completed_at']) || undefined,
-  }
-}
 
 // ============================================================
 // Store
@@ -310,6 +208,7 @@ interface TaskStore {
   steps: StepWithDisplay[]
   isLoading: boolean
   error: string | null
+  streamStatus: TaskStreamStatus
 
   // 方法
   fetchTasks: () => Promise<void>
@@ -325,13 +224,14 @@ export const useTaskStore = create<TaskStore>((set) => ({
   steps: [],
   isLoading: false,
   error: null,
+  streamStatus: 'disconnected',
 
   // ---- 获取任务列表 ----
   fetchTasks: async () => {
     set({ isLoading: true, error: null })
     try {
       const response = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/tasks')
-      const tasks = extractData<unknown[]>(response).map(normalizeTask)
+      const tasks = unwrapApiData(response.data).map(toTask)
       set({ tasks, isLoading: false })
     } catch (err) {
       // API 不可达时降级为 mock 数据
@@ -353,7 +253,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
         description: data.description ?? '',
       }
       const response = await apiClient.post<ApiResponse<unknown> | unknown>('/tasks', payload)
-      const newTask = normalizeTask(extractData<unknown>(response))
+      const newTask = toTask(unwrapApiData(response.data))
       set((s) => ({ tasks: [newTask, ...s.tasks], isLoading: false }))
       return newTask
     } catch (err) {
@@ -385,15 +285,15 @@ export const useTaskStore = create<TaskStore>((set) => ({
     try {
       // 获取任务详情
       const response = await apiClient.get<ApiResponse<RawRecord> | RawRecord>(`/tasks/${taskId}`)
-      const rawDetail = extractData<RawRecord>(response)
-      const task = normalizeTask(rawDetail)
+      const rawDetail = unwrapApiData(response.data)
+      const task = toTask(rawDetail)
 
       // 步骤数据：尝试从后端获取；如果后端不返回 steps 字段，用 mock
       // 后端API设计：GET /tasks/{id} 返回任务详情，步骤可能通过SSE获取
       const rawSteps = Array.isArray(rawDetail.steps)
         ? rawDetail.steps
         : MOCK_STEPS.filter((s) => s.taskId === taskId)
-      const steps = rawSteps.map(normalizeStep)
+      const steps = sortTimelineSteps(rawSteps.map(toTaskStep))
 
       set({ currentTask: task, steps, isLoading: false })
       return { task, steps }
@@ -406,7 +306,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
           set({ isLoading: false, error: '任务未找到' })
           throw new Error('任务未找到', { cause: err })
         }
-        const steps = MOCK_STEPS.filter((s) => s.taskId === taskId)
+        const steps = sortTimelineSteps(MOCK_STEPS.filter((s) => s.taskId === taskId))
         set({ currentTask: task, steps, isLoading: false })
         return { task, steps }
       }
@@ -418,10 +318,12 @@ export const useTaskStore = create<TaskStore>((set) => ({
   // ---- 订阅任务的 SSE 流（返回取消订阅函数） ----
   subscribeToTask: (taskId) => {
     let eventSource: EventSource | null = null
+    set({ streamStatus: 'connecting' })
 
     try {
       eventSource = createSSEConnection(`/tasks/${taskId}/stream`, {
         onOpen: () => {
+          set({ streamStatus: 'connected' })
           if (import.meta.env.DEV) {
             console.log(`[SSE] 已连接任务流: ${taskId}`)
           }
@@ -439,22 +341,22 @@ export const useTaskStore = create<TaskStore>((set) => ({
           }
 
           if (event.type === 'step_update' && event.step) {
-            const nextStep = normalizeStep(event.step)
+            const nextStep = toTaskStep(event.step)
             set((s) => {
               const idx = s.steps.findIndex((st) => st.id === nextStep.id)
               if (idx >= 0) {
                 const updated = [...s.steps]
                 updated[idx] = nextStep
-                return { steps: updated }
+                return { steps: sortTimelineSteps(updated) }
               }
               return {
-                steps: [...s.steps, nextStep].sort((a, b) => a.order - b.order),
+                steps: sortTimelineSteps([...s.steps, nextStep]),
               }
             })
           }
 
           if ((event.type === 'task_update' || event.type === 'done') && event.task) {
-            const nextTask = normalizeTask(event.task)
+            const nextTask = toTask(event.task)
             set((s) => {
               // 更新 currentTask（如果当前查看的就是这个任务）
               if (s.currentTask?.id === nextTask.id) {
@@ -475,21 +377,23 @@ export const useTaskStore = create<TaskStore>((set) => ({
           if (event.type === 'done' && !event.task && event.status) {
             set((s) => ({
               currentTask: s.currentTask
-                ? { ...s.currentTask, status: normalizeTaskStatus(event.status) }
+                ? { ...s.currentTask, status: toTaskStatus(event.status) }
                 : s.currentTask,
               tasks: s.tasks.map((t) =>
-                t.id === taskId ? { ...t, status: normalizeTaskStatus(event.status) } : t,
+                t.id === taskId ? { ...t, status: toTaskStatus(event.status) } : t,
               ),
             }))
           }
         },
 
         onError: () => {
+          set({ streamStatus: 'disconnected' })
           // SSE 连接错误（通常是后端未就绪），静默处理
           // 数据已通过 fetchTaskDetail 加载到 store
         },
       })
     } catch {
+      set({ streamStatus: 'disconnected' })
       // 浏览器不支持 SSE 或创建失败
       if (import.meta.env.DEV) {
         console.warn('[SSE] 无法创建任务流连接，将仅使用已加载数据')
@@ -500,6 +404,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
     return () => {
       if (eventSource) {
         eventSource.close()
+        set({ streamStatus: 'disconnected' })
         if (import.meta.env.DEV) {
           console.log(`[SSE] 已断开任务流: ${taskId}`)
         }

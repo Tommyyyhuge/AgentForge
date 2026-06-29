@@ -1,240 +1,220 @@
 # AgentForge
 
-> 企业级多智能体协作任务执行平台
+> Single-tenant, lightly authenticated multi-agent task execution and observability platform.
 
-## 项目简介
+AgentForge lets a user create tasks, route work through a planner and specialized agents, inspect execution progress, and preserve useful task memory. The current product boundary is intentionally smaller than a team workspace product; see [AGENTS.md](./AGENTS.md), [docs/PRD.md](./docs/PRD.md), [docs/TECH.md](./docs/TECH.md), [docs/SPEC.md](./docs/SPEC.md), and [docs/DESIGN.md](./docs/DESIGN.md) for the authoritative product, technical, implementation, design, and development rules.
 
-AgentForge 是一个覆盖 8 个核心 AI 方向的多智能体协作平台：
+## Current Scope
 
-- **ReAct** - 手写推理+行动循环引擎
-- **Plan-and-Solve** - 任务规划+依赖图执行
-- **Reflection** - 自我反思+经验学习
-- **Multi-Agent** - 6 角色协作调度
-- **MCP** - 工具注册协议
-- **A2A** - Agent 间通信协议
-- **RAG** - 向量检索增强
-- **Memory** - 三层记忆系统
+AgentForge currently includes:
 
-## 技术栈
+- Task creation, execution, inspection, and review.
+- A **Planner** that decomposes a task before agent execution.
+- Five built-in executable **Agents**: Researcher, Coder, Writer, Reviewer, and Executor.
+- ReAct-style execution loops, reflection support, agent-to-agent messaging, and MCP-style tool registration.
+- **Memory** and **Memory Retrieval** for reusable task context.
+- Lightweight user authentication, API keys, metrics, and a React dashboard.
 
-### 后端
+Not current scope:
+
+- Administrator user roles or team permissions.
+- Workspaces, organizations, or multi-tenant collaboration.
+- Plugin marketplace, PWA support, or internationalization.
+- A user-managed **Knowledge Base** or full document question-answering product.
+
+## Architecture
+
+Docker Compose runs four services:
+
+```text
+Browser
+  |
+  v
+Frontend: React 19 + Vite build served by Nginx
+  |
+  | /api/*
+  v
+Backend: FastAPI
+  |-- PostgreSQL 16 for application data
+  |-- Redis 7 for cache/message support
+  |-- embedded Chroma persistence for Memory
+```
+
+Chroma is not a separate Compose service. The backend uses an embedded Chroma persistent client and mounts `chroma_data` at `/data/chromadb`. The decision is recorded in [docs/adr/0001-use-embedded-chroma-for-memory.md](./docs/adr/0001-use-embedded-chroma-for-memory.md).
+
+## Tech Stack
+
+Backend:
+
 - Python 3.11+
-- FastAPI + Uvicorn
-- SQLAlchemy + PostgreSQL/SQLite
-- ChromaDB（向量数据库）
-- JWT + bcrypt（认证）
+- FastAPI, Uvicorn
+- SQLAlchemy, Alembic
+- PostgreSQL in Docker, SQLite for local development
+- ChromaDB embedded persistence with SQLite fallback
+- Redis
+- JWT, bcrypt, encrypted API keys
 
-### 前端
-- React 18 + TypeScript
-- Vite + Tailwind CSS
-- Zustand（状态管理）
-- Chart.js（数据可视化）
+Frontend:
 
-## 快速开始
+- React 19, TypeScript 6
+- Vite 8
+- Tailwind CSS
+- Zustand
+- React Router 7
+- React Flow
+- Recharts
+- Axios
 
-### 1. 克隆项目
+## Quick Start With Docker
 
-```bash
-git clone https://github.com/yourname/agentforge.git
-cd agentforge
+Prerequisite: Docker Desktop must be running.
+
+From the repository root:
+
+```powershell
+$env:JWT_SECRET_KEY='0123456789abcdef0123456789abcdef'
+$env:ENCRYPTION_KEY='abcdef0123456789abcdef0123456789'
+docker compose up -d --build
 ```
 
-### 2. 配置 Anaconda 环境
+Open:
 
-```bash
-# 创建虚拟环境（Python 3.11）
-conda create -n agentforge python=3.11 -y
+- Frontend: <http://localhost:3000>
+- Backend API docs: <http://localhost:8000/docs>
+- Backend health: <http://localhost:8000/health>
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
 
-# 激活环境
-conda activate agentforge
+Useful Docker commands:
 
-# 验证环境
-python --version  # 应显示 Python 3.11.x
+```powershell
+docker compose ps
+docker compose logs -f backend
+docker compose down
 ```
 
-### 3. 安装后端依赖
+## Local Development
 
-```bash
+Backend:
+
+```powershell
 cd backend
 pip install -r requirements.txt
+$env:JWT_SECRET_KEY='0123456789abcdef0123456789abcdef'
+$env:ENCRYPTION_KEY='abcdef0123456789abcdef0123456789'
+python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### 4. 配置环境变量
+Frontend:
 
-```bash
-cp .env.example .env
-# 编辑 .env 文件，配置必要的 API Keys
-```
-
-### 5. 启动后端
-
-```bash
-# 开发模式
-uvicorn main:app --reload
-
-# 生产模式
-gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
-```
-
-### 6. 启动前端
-
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-### 7. Docker 一键启动（推荐）
+The Vite dev server defaults to <http://localhost:5173>.
 
-```bash
-# 克隆项目
-git clone https://github.com/yourname/agentforge.git
-cd agentforge
+## Environment Variables
 
-# 配置环境变量（可选，有默认值）
-cp .env.example .env
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `ENVIRONMENT` | No | `development` | Runtime environment |
+| `DB_TYPE` | No | `sqlite` | `sqlite` or `postgresql` |
+| `DATABASE_URL` | Depends | `sqlite:///data/agentforge.db` | Required for PostgreSQL deployments |
+| `JWT_SECRET_KEY` | Yes | none | JWT signing secret |
+| `JWT_ALGORITHM` | No | `HS256` | JWT algorithm |
+| `JWT_EXPIRE_DAYS` | No | `7` | Token lifetime |
+| `ENCRYPTION_KEY` | Yes | none | Secret used for API key encryption |
+| `ENCRYPTION_SALT` | No | `agentforge-salt` | PBKDF2 salt |
+| `KIMI_API_KEY` | No | none | Optional Moonshot/Kimi key |
+| `KIMI_BASE_URL` | No | `https://api.moonshot.cn` | Kimi endpoint |
+| `DEEPSEEK_API_KEY` | No | none | Optional DeepSeek key |
+| `DEEPSEEK_BASE_URL` | No | `https://api.deepseek.com` | DeepSeek endpoint |
+| `REDIS_URL` | No | `redis://localhost:6379` | Redis connection URL |
+| `CHROMA_PERSIST_DIR` | No | `./data/chromadb` | Embedded Chroma data directory |
+| `ENABLE_MONITORING` | No | `true` | Metrics collection switch |
+| `METRICS_RETENTION_DAYS` | No | `30` | Metrics retention window |
+| `LOG_LEVEL` | No | `INFO` | Logging level |
+| `LOG_FORMAT` | No | `json` | Logging format |
 
-# 一键启动全部服务
-docker-compose up -d
+## Project Structure
 
-# 查看日志
-docker-compose logs -f
-
-# 停止
-docker-compose down
-```
-
-访问地址：
-- 前端：http://localhost:3000
-- 后端 API 文档：http://localhost:8000/docs
-- PostgreSQL：localhost:5432
-- ChromaDB：localhost:8001
-
-### 8. 环境变量说明
-
-| 变量 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `ENVIRONMENT` | 否 | `development` | 运行环境 |
-| `DB_TYPE` | 否 | `sqlite` | 数据库类型（sqlite / postgresql） |
-| `DATABASE_URL` | 是* | `sqlite:///data/agentforge.db` | 数据库连接字符串 |
-| `JWT_SECRET_KEY` | **是** | — | JWT 签名密钥，`openssl rand -hex 32` |
-| `ENCRYPTION_KEY` | **是** | — | API Key 加密主密钥 |
-| `ENCRYPTION_SALT` | 否 | `agentforge-salt` | PBKDF2 盐值 |
-| `KIMI_API_KEY` | 否 | — | Kimi (Moonshot) API Key |
-| `DEEPSEEK_API_KEY` | 否 | — | DeepSeek API Key |
-| `CHROMA_PERSIST_DIR` | 否 | `./data/chromadb` | 向量数据库目录 |
-| `REDIS_URL` | 否 | `redis://localhost:6379` | Redis 缓存地址 |
-
-> *生产环境需配置 PostgreSQL；开发环境默认使用 SQLite 无需配置。
-
-### 9. 架构图
-
-```
-┌─────────────────────────────────────────────────────┐
-│                    Nginx (Frontend)                  │
-│                   localhost:3000                     │
-│          React 19 + Vite + Tailwind CSS              │
-└──────────────┬──────────────────────────────────────┘
-               │  /api/* 代理
-┌──────────────▼──────────────────────────────────────┐
-│                  FastAPI (Backend)                   │
-│                   localhost:8000                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │ ReAct引擎 │ │ Planner  │ │A2A 总线  │            │
-│  └──────────┘ └──────────┘ └──────────┘            │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
-│  │Reflection│ │   RAG    │ │ Memory   │            │
-│  └──────────┘ └──────────┘ └──────────┘            │
-└──┬────────────┬──────────────┬──────────────────────┘
-   │            │              │
-┌──▼──┐  ┌─────▼─────┐  ┌────▼─────┐
-│PG 16│  │ ChromaDB  │  │  Redis   │
-│5432 │  │   8001    │  │   6379   │
-└─────┘  └───────────┘  └──────────┘
-```
-
-## 项目结构
-
-```
+```text
 AgentForge/
-├── backend/                  # 后端代码
-│   ├── agent_forge/          # 主包
-│   │   ├── core/             # ReAct, Planner, A2A, RAG, Memory, LLM
-│   │   ├── agents/           # 6 个 Agent 角色 + Factory
-│   │   ├── tools/            # 8 个 MCP 工具
-│   │   ├── mcp/              # 工具注册协议
-│   │   ├── api/              # REST API（tasks/agents/auth/keys/metrics）
-│   │   ├── database/         # ORM 模型 + 连接
-│   │   ├── config/           # 配置管理
-│   │   └── utils/            # 日志 + 加密
-│   ├── tests/            # 387 个后端测试
-│   ├── main.py               # 入口
-│   └── requirements.txt
-├── frontend/                 # 前端代码
-│   ├── src/
-│   │   ├── pages/            # Dashboard, Tasks, AgentMonitor, Chat, Settings, Login, Register
-│   │   ├── components/       # UI/Flow/Charts/Auth 组件
-│   │   ├── stores/           # Zustand 状态管理
-│   │   ├── hooks/            # useTheme, useToastManager
-│   │   └── api/              # Axios 客户端 + SSE
-│   ├── tests/                # 38 个测试
-│   └── Dockerfile
-├── docs/                     # 设计文档 + 实施计划
-├── docker-compose.yml        # 一键启动
-├── Dockerfile                # 后端镜像
-├── nginx.conf                # 前端 Nginx 配置
-└── Makefile                  # 开发命令
+  backend/
+    agent_forge/
+      agents/       # executable agent implementations and factory
+      api/          # REST routes: tasks, agents, auth, keys, metrics
+      config/       # settings
+      core/         # planner, execution loop, memory, messaging, LLM routing
+      database/     # ORM models, connection, migrations
+      mcp/          # tool registry
+      tools/        # built-in tools
+      utils/        # logging and crypto helpers
+    alembic/        # database migrations
+    tests/          # backend tests
+    main.py         # FastAPI entrypoint
+  frontend/
+    src/
+      api/          # HTTP/SSE clients
+      components/   # UI components
+      hooks/        # React hooks
+      pages/        # app views
+      stores/       # Zustand stores
+    tests/          # frontend tests
+  docs/
+    adr/            # architectural decision records
+    superpowers/    # design/spec history
+  CONTEXT.md        # supplemental project language notes
+  docker-compose.yml
+  Dockerfile        # backend image
+  nginx.conf
 ```
 
-## 文档
+## Verification
 
-- [设计文档](docs/superpowers/specs/2026-05-19-agentforge-design.md)
-- [实现计划](docs/IMPLEMENTATION_PLAN.md)
-- [Week 1 任务清单](docs/WEEK1_DETAILED_TASKS.md)
-- [Anaconda 配置指南](docs/ANACONDA_SETUP.md)
+Backend:
 
-## 开发规范
-
-### 代码格式
-
-```bash
-# 后端
-black agent_forge/
-isort agent_forge/
-mypy agent_forge/
-
-# 前端
-npm run lint
-npm run format
-```
-
-### 测试
-
-```bash
-# 后端测试
+```powershell
 cd backend
-pytest --cov=agent_forge --cov-report=html
-
-# 前端测试
-cd frontend
-npm test
+python -m pytest
+python -m mypy agent_forge --ignore-missing-imports
+python -m flake8 agent_forge
 ```
 
-## 面试展示
+Frontend:
 
-### 5 分钟快速演示
+```powershell
+cd frontend
+npm run lint
+npm run test
+npm run build
+```
 
-1. 打开 Web Demo → 专业 Dashboard 界面
-2. 选择预设任务场景（调研/编程/写作）
-3. 实时观看 Planner 拆解任务 → 依赖图可视化
-4. 多 Agent 协作执行 → ReAct 循环可视化
-5. 查看反思报告 + 性能监控 Dashboard
+## Notes
 
-## 许可证
+- A regular **User** account is not an administrator role. Administrator user roles are future scope.
+- `admin` on an **API Key** is a permission level for programmatic access, not a user role.
+- **Memory Retrieval** is part of the current memory system. A user-managed **Knowledge Base** is future scope.
+
+## Documentation
+
+Current authoritative documents:
+
+- [Agent instructions](./AGENTS.md)
+- [Product requirements](./docs/PRD.md)
+- [Technical architecture](./docs/TECH.md)
+- [Refactor issue specification](./docs/SPEC.md)
+- [Design guidelines](./docs/DESIGN.md)
+
+Supplemental and historical documents:
+
+- [Project context notes](./CONTEXT.md)
+- [Embedded Chroma ADR](./docs/adr/0001-use-embedded-chroma-for-memory.md)
+- [Historical implementation plan](./docs/IMPLEMENTATION_PLAN.md)
+- [Anaconda setup](./docs/ANACONDA_SETUP.md)
+
+## License
 
 MIT License
-
-## 作者
-
-- 开发者: [Your Name]
-- 日期: 2026-05-19

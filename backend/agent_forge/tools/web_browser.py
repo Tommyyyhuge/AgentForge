@@ -6,7 +6,7 @@ AgentForge 网页浏览器工具模块
 """
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import httpx
 
@@ -54,8 +54,10 @@ def _html_to_text(html: str) -> str:
     text = re.sub(r"<noscript[^>]*>.*?</noscript>", "", text, flags=re.DOTALL | re.IGNORECASE)
 
     # 将块级标签替换为换行符
-    for tag in ["p", "br", "div", "h1", "h2", "h3", "h4", "h5", "h6",
-                 "li", "tr", "blockquote", "section", "header", "footer"]:
+    for tag in [
+        "p", "br", "div", "h1", "h2", "h3", "h4", "h5", "h6",
+        "li", "tr", "blockquote", "section", "header", "footer",
+    ]:
         text = re.sub(
             rf"<{tag}[^>]*>", "\n", text, flags=re.IGNORECASE
         )

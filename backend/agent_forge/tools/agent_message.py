@@ -5,7 +5,7 @@ AgentForge Agent 消息工具模块
 支持点对点发送和带超时的请求-响应模式。
 """
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from agent_forge.core.a2a_bus import A2ABus, A2AMessage
 from agent_forge.tools.base import BaseTool, ToolSchema

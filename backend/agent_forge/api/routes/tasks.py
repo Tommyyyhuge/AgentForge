@@ -74,6 +74,7 @@ class StepResponse(BaseModel):
     task_id: str
     agent_id: str
     agent_role: str
+    step_number: int
     step_type: str
     content: str
     timestamp: datetime
@@ -110,6 +111,7 @@ def _orm_step_to_response(step: StepORM) -> StepResponse:
         task_id=step.task_id,
         agent_id=step.agent_id,
         agent_role=step.agent_role,
+        step_number=step.step_number,
         step_type=step.step_type,
         content=step.content,
         timestamp=step.timestamp,

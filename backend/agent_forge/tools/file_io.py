@@ -5,7 +5,7 @@ AgentForge 文件读写工具模块
 """
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from agent_forge.tools.base import BaseTool, ToolSchema
 from agent_forge.utils.logging import get_logger

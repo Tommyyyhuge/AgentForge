@@ -6,7 +6,7 @@ BaseAgent 提供了 Agent 生命周期管理、记忆系统和基础回调接口
 """
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 
 from agent_forge.core.cancellation import CancellationToken
 from agent_forge.core.llm_client import LLMRouter
