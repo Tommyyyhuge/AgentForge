@@ -1,6 +1,6 @@
 # AgentForge Makefile
 
-.PHONY: help install dev-install test lint format clean docker-build docker-up docker-down
+.PHONY: help install dev-install test lint format clean docker-build docker-up docker-down check
 
 # 默认目标
 help:
@@ -92,10 +92,13 @@ clean:
 	find . -type f -name ".coverage" -delete
 
 check:
-	make format
-	make lint
-	make test
-	@echo "✅ 所有检查通过"
+	cd backend && python -m pytest
+	cd backend && python -m mypy agent_forge --ignore-missing-imports
+	cd backend && python -m flake8 agent_forge
+	cd frontend && npm run lint
+	cd frontend && npm run test
+	cd frontend && npm run build
+	@echo "所有检查通过"
 
 # 初始化项目
 init:
