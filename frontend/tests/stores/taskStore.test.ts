@@ -123,6 +123,26 @@ describe('taskStore API contract', () => {
     ])
   })
 
+  it('does not fabricate timeline steps when Task detail has no persisted steps', async () => {
+    mocks.get.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          id: 'task-2',
+          title: 'Build',
+          description: 'Build the work',
+          status: 'executing',
+          created_at: '2026-06-26T01:00:00Z',
+          updated_at: '2026-06-26T01:01:00Z',
+        },
+      },
+    })
+
+    await useTaskStore.getState().fetchTaskDetail('task-2')
+
+    expect(useTaskStore.getState().steps).toEqual([])
+  })
+
   it('keeps SSE step updates sorted when an existing Step order changes', () => {
     mocks.createSSEConnection.mockReturnValue({ close: vi.fn() })
     useTaskStore.setState({

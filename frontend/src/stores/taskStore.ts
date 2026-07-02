@@ -127,48 +127,6 @@ const MOCK_TASKS: Task[] = [
   },
 ]
 
-const MOCK_STEPS: StepWithDisplay[] = [
-  {
-    id: 'step-1', taskId: 'task-2', order: 1,
-    action: '分析当前项目结构，确定最佳目录组织方式',
-    stepType: 'thought', status: 'completed',
-    agentId: 'agent-1', startedAt: '2026-05-19T09:05:00Z', completedAt: '2026-05-19T09:20:00Z',
-  },
-  {
-    id: 'step-2', taskId: 'task-2', order: 2,
-    action: '初始化 Vite 项目并安装依赖',
-    stepType: 'action', status: 'completed',
-    agentId: 'agent-2', startedAt: '2026-05-19T09:21:00Z', completedAt: '2026-05-19T09:35:00Z',
-    result: 'Vite 项目创建成功，所有依赖安装完成',
-  },
-  {
-    id: 'step-3', taskId: 'task-2', order: 3,
-    action: '配置 Tailwind CSS 和 PostCSS',
-    stepType: 'action', status: 'completed',
-    agentId: 'agent-1', startedAt: '2026-05-19T09:36:00Z', completedAt: '2026-05-19T09:50:00Z',
-    result: 'Tailwind 配置完成，品牌色系已定义',
-  },
-  {
-    id: 'step-4', taskId: 'task-2', order: 4,
-    action: '检查项目文件结构是否符合规范',
-    stepType: 'observation', status: 'completed',
-    agentId: 'agent-1', startedAt: '2026-05-19T09:51:00Z', completedAt: '2026-05-19T10:00:00Z',
-    result: '目录结构符合预期，所有配置文件就位',
-  },
-  {
-    id: 'step-5', taskId: 'task-2', order: 5,
-    action: '创建前端布局组件和页面路由',
-    stepType: 'action', status: 'running',
-    agentId: 'agent-2', startedAt: '2026-05-20T09:00:00Z',
-  },
-  {
-    id: 'step-6', taskId: 'task-2', order: 6,
-    action: '最终代码审查和测试',
-    stepType: 'final', status: 'pending',
-    agentId: 'agent-1',
-  },
-]
-
 // ============================================================
 // API 响应类型（辅助函数内部使用）
 // ============================================================
@@ -288,17 +246,16 @@ export const useTaskStore = create<TaskStore>((set) => ({
       const rawDetail = unwrapApiData(response.data)
       const task = toTask(rawDetail)
 
-      // 步骤数据：尝试从后端获取；如果后端不返回 steps 字段，用 mock
-      // 后端API设计：GET /tasks/{id} 返回任务详情，步骤可能通过SSE获取
+      // Step timeline only reflects persisted backend data and live SSE updates.
       const rawSteps = Array.isArray(rawDetail.steps)
         ? rawDetail.steps
-        : MOCK_STEPS.filter((s) => s.taskId === taskId)
+        : []
       const steps = sortTimelineSteps(rawSteps.map(toTaskStep))
 
       set({ currentTask: task, steps, isLoading: false })
       return { task, steps }
     } catch (err) {
-      // 降级：使用 mock 数据
+      // Degraded detail view keeps the timeline empty instead of fabricating Steps.
       if (isNetworkError(err)) {
         console.warn('[TaskStore] 后端不可达，使用 mock 数据:', (err as Error).message)
         const task = MOCK_TASKS.find((t) => t.id === taskId) ?? null
@@ -306,7 +263,7 @@ export const useTaskStore = create<TaskStore>((set) => ({
           set({ isLoading: false, error: '任务未找到' })
           throw new Error('任务未找到', { cause: err })
         }
-        const steps = sortTimelineSteps(MOCK_STEPS.filter((s) => s.taskId === taskId))
+        const steps: StepWithDisplay[] = []
         set({ currentTask: task, steps, isLoading: false })
         return { task, steps }
       }
