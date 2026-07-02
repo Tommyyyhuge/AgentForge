@@ -56,6 +56,15 @@ describe('agentStore API contract', () => {
     })
   })
 
+  it('keeps Agent list empty and reports an error when the backend is unavailable', async () => {
+    mocks.get.mockRejectedValueOnce(new Error('无法连接到服务器，请确认后端已启动'))
+
+    await useAgentStore.getState().fetchAgents()
+
+    expect(useAgentStore.getState().agents).toEqual([])
+    expect(useAgentStore.getState().error).toBe('无法连接到服务器，请确认后端已启动')
+  })
+
   it('normalizes agent SSE update events', () => {
     mocks.createSSEConnection.mockReturnValue({ close: vi.fn() })
 

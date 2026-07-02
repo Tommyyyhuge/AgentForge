@@ -194,7 +194,8 @@ Chat 是辅助交互入口，不是 AgentForge 的主产品模型。
 
 需要支持：
 
-- 用户与 AgentForge 或 Agent-oriented session 对话。
+- 用户从 Chat 输入 Task 描述，并创建真实 Task。
+- 创建成功后链接到对应 Task detail。
 - 在可用时展示相关 Task 或 Step 上下文。
 - 与 Task 执行术语保持一致。
 
@@ -202,6 +203,7 @@ Chat 是辅助交互入口，不是 AgentForge 的主产品模型。
 
 - Chat 不引入与 Task 竞争的独立产品模型。
 - Chat 触发或引用 Task 时，需要能链接到对应 Task。
+- Chat 不展示模拟 Agent 回复或伪造 Step；Execution 的权威记录仍在 Task detail。
 
 ### 6.8 Memory
 

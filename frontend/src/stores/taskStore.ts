@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Task, TaskStatus, TaskPriority, ApiResponse, TaskStep } from '../types'
+import type { Task, TaskStatus, ApiResponse, TaskStep } from '../types'
 import apiClient, { createSSEConnection } from '../api/client'
 import { toTask, toTaskStatus, toTaskStep, unwrapApiData } from '../api/tasks'
 
@@ -52,90 +52,8 @@ export const STEP_TYPE_LABELS: Record<StepDisplayType, string> = {
 }
 
 // ============================================================
-// Mock 数据（API 不可用时的降级方案）
-// ============================================================
-
-const MOCK_TASKS: Task[] = [
-  {
-    id: 'task-1',
-    title: '分析用户需求文档',
-    description: '读取并分析产品需求文档，提取关键功能点和技术约束',
-    status: 'completed',
-    priority: 'high' as TaskPriority,
-    assignedAgents: ['agent-1'],
-    dependencies: [],
-    result: '需求分析完成，共提取 12 个功能点',
-    createdAt: '2026-05-18T08:00:00Z',
-    updatedAt: '2026-05-18T10:30:00Z',
-    completedAt: '2026-05-18T10:30:00Z',
-  },
-  {
-    id: 'task-2',
-    title: '搭建项目基础架构',
-    description: '创建 Vite + React + TypeScript 项目骨架，配置 Tailwind CSS',
-    status: 'executing',
-    priority: 'critical' as TaskPriority,
-    assignedAgents: ['agent-1', 'agent-2'],
-    dependencies: ['task-1'],
-    createdAt: '2026-05-19T09:00:00Z',
-    updatedAt: '2026-05-20T14:00:00Z',
-  },
-  {
-    id: 'task-3',
-    title: '实现用户认证模块',
-    description: '基于 JWT 的用户登录/注册功能',
-    status: 'pending',
-    priority: 'high' as TaskPriority,
-    assignedAgents: ['agent-3'],
-    dependencies: ['task-2'],
-    createdAt: '2026-05-20T10:00:00Z',
-    updatedAt: '2026-05-20T10:00:00Z',
-  },
-  {
-    id: 'task-4',
-    title: '设计数据库模型',
-    description: '设计 Agent 和 Task 相关的数据库表结构',
-    status: 'planning',
-    priority: 'medium' as TaskPriority,
-    assignedAgents: ['agent-2'],
-    dependencies: [],
-    createdAt: '2026-05-19T14:00:00Z',
-    updatedAt: '2026-05-20T09:00:00Z',
-  },
-  {
-    id: 'task-5',
-    title: '编写单元测试',
-    description: '为核心业务逻辑编写 Jest 单元测试',
-    status: 'failed',
-    priority: 'medium' as TaskPriority,
-    assignedAgents: ['agent-4'],
-    dependencies: ['task-2'],
-    error: '测试覆盖率未达到 80% 阈值',
-    createdAt: '2026-05-20T08:00:00Z',
-    updatedAt: '2026-05-20T12:00:00Z',
-  },
-  {
-    id: 'task-6',
-    title: '性能优化 - 前端',
-    description: '优化 React 组件渲染性能，减少不必要的 re-render',
-    status: 'pending',
-    priority: 'low' as TaskPriority,
-    assignedAgents: [],
-    dependencies: [],
-    createdAt: '2026-05-20T11:00:00Z',
-    updatedAt: '2026-05-20T11:00:00Z',
-  },
-]
-
-// ============================================================
 // API 响应类型（辅助函数内部使用）
 // ============================================================
-
-/** 判断是否为后端 API 不可达错误 */
-function isNetworkError(error: unknown): boolean {
-  return error instanceof Error &&
-    (error.message.includes('无法连接') || error.message.includes('网络'))
-}
 
 function compareTimelineSteps(a: StepWithDisplay, b: StepWithDisplay): number {
   const orderDelta = a.order - b.order
@@ -192,13 +110,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
       const tasks = unwrapApiData(response.data).map(toTask)
       set({ tasks, isLoading: false })
     } catch (err) {
-      // API 不可达时降级为 mock 数据
-      if (isNetworkError(err)) {
-        console.warn('[TaskStore] 后端不可达，使用 mock 数据:', (err as Error).message)
-        set({ tasks: MOCK_TASKS, isLoading: false })
-        return
-      }
-      set({ isLoading: false, error: (err as Error).message })
+      const message = err instanceof Error ? err.message : '加载 Task 失败'
+      set({ tasks: [], isLoading: false, error: message })
     }
   },
 
@@ -215,24 +128,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
       set((s) => ({ tasks: [newTask, ...s.tasks], isLoading: false }))
       return newTask
     } catch (err) {
-      // 降级：本地创建 mock 任务
-      if (isNetworkError(err)) {
-        console.warn('[TaskStore] 后端不可达，使用本地 mock:', (err as Error).message)
-        const newTask: Task = {
-          id: `task-${Date.now()}`,
-          title: data.title ?? '新任务',
-          description: data.description ?? '',
-          status: 'pending',
-          priority: data.priority ?? 'medium',
-          assignedAgents: data.assignedAgents ?? [],
-          dependencies: data.dependencies ?? [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-        set((s) => ({ tasks: [newTask, ...s.tasks], isLoading: false }))
-        return newTask
-      }
-      set({ isLoading: false, error: (err as Error).message })
+      const message = err instanceof Error ? err.message : '创建 Task 失败'
+      set({ isLoading: false, error: message })
       throw err
     }
   },
@@ -255,19 +152,8 @@ export const useTaskStore = create<TaskStore>((set) => ({
       set({ currentTask: task, steps, isLoading: false })
       return { task, steps }
     } catch (err) {
-      // Degraded detail view keeps the timeline empty instead of fabricating Steps.
-      if (isNetworkError(err)) {
-        console.warn('[TaskStore] 后端不可达，使用 mock 数据:', (err as Error).message)
-        const task = MOCK_TASKS.find((t) => t.id === taskId) ?? null
-        if (!task) {
-          set({ isLoading: false, error: '任务未找到' })
-          throw new Error('任务未找到', { cause: err })
-        }
-        const steps: StepWithDisplay[] = []
-        set({ currentTask: task, steps, isLoading: false })
-        return { task, steps }
-      }
-      set({ isLoading: false, error: (err as Error).message })
+      const message = err instanceof Error ? err.message : '加载 Task 详情失败'
+      set({ currentTask: null, steps: [], isLoading: false, error: message })
       throw err
     }
   },

@@ -28,58 +28,6 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
 }
 
 // ============================================================
-// Mock 数据（API 不可用时的降级方案）
-// ============================================================
-
-const MOCK_AGENTS: Agent[] = [
-  {
-    id: 'agent-1',
-    name: 'Researcher',
-    role: 'researcher',
-    status: 'busy',
-    description: '信息搜索、资料整理和事实核查',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-15T08:00:00Z',
-    updatedAt: '2026-05-20T14:00:00Z',
-  },
-  {
-    id: 'agent-2',
-    name: 'Coder',
-    role: 'coder',
-    status: 'idle',
-    description: '代码生成、脚本编写和技术实现',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-15T08:30:00Z',
-    updatedAt: '2026-05-20T12:00:00Z',
-  },
-  {
-    id: 'agent-3',
-    name: 'Writer',
-    role: 'writer',
-    status: 'idle',
-    description: '结果整合、报告撰写和表达优化',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-16T09:00:00Z',
-    updatedAt: '2026-05-20T10:00:00Z',
-  },
-  {
-    id: 'agent-4',
-    name: 'Reviewer',
-    role: 'reviewer',
-    status: 'idle',
-    description: '代码审查与质量把控，确保输出符合规范',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-16T10:00:00Z',
-    updatedAt: '2026-05-20T08:00:00Z',
-  },
-]
-
-function isNetworkError(error: unknown): boolean {
-  return error instanceof Error &&
-    (error.message.includes('无法连接') || error.message.includes('网络'))
-}
-
-// ============================================================
 // Store
 // ============================================================
 
@@ -106,13 +54,8 @@ export const useAgentStore = create<AgentStore>((set) => ({
       const agents = unwrapApiData(response.data).map(toAgent)
       set({ agents, isLoading: false })
     } catch (err) {
-      // API 不可达时降级为 mock 数据
-      if (isNetworkError(err)) {
-        console.warn('[AgentStore] 后端不可达，使用 mock 数据:', (err as Error).message)
-        set({ agents: MOCK_AGENTS, isLoading: false })
-        return
-      }
-      set({ isLoading: false, error: (err as Error).message })
+      const message = err instanceof Error ? err.message : '加载 Agent 失败'
+      set({ agents: [], isLoading: false, error: message })
     }
   },
 

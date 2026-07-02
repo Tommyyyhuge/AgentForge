@@ -62,6 +62,39 @@ describe('taskStore API contract', () => {
     })
   })
 
+  it('keeps Task list empty and reports an error when the backend is unavailable', async () => {
+    mocks.get.mockRejectedValueOnce(new Error('无法连接到服务器，请确认后端已启动'))
+
+    await useTaskStore.getState().fetchTasks()
+
+    expect(useTaskStore.getState().tasks).toEqual([])
+    expect(useTaskStore.getState().error).toBe('无法连接到服务器，请确认后端已启动')
+  })
+
+  it('does not create a local mock Task when task creation fails', async () => {
+    const error = new Error('无法连接到服务器，请确认后端已启动')
+    mocks.post.mockRejectedValueOnce(error)
+
+    await expect(
+      useTaskStore.getState().createTask({ title: 'Real backend task' }),
+    ).rejects.toThrow('无法连接到服务器，请确认后端已启动')
+
+    expect(useTaskStore.getState().tasks).toEqual([])
+    expect(useTaskStore.getState().error).toBe('无法连接到服务器，请确认后端已启动')
+  })
+
+  it('does not synthesize Task detail when the backend is unavailable', async () => {
+    mocks.get.mockRejectedValueOnce(new Error('无法连接到服务器，请确认后端已启动'))
+
+    await expect(useTaskStore.getState().fetchTaskDetail('task-1')).rejects.toThrow(
+      '无法连接到服务器，请确认后端已启动',
+    )
+
+    expect(useTaskStore.getState().currentTask).toBeNull()
+    expect(useTaskStore.getState().steps).toEqual([])
+    expect(useTaskStore.getState().error).toBe('无法连接到服务器，请确认后端已启动')
+  })
+
   it('uses PRD Step type values as timeline labels and color keys', () => {
     const stepTypes = ['thought', 'action', 'observation', 'final', 'error'] as const
 

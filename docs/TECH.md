@@ -162,9 +162,10 @@ Redis
 
 Provider routes 需要登录认证，使用标准 envelope，新响应字段使用 camelCase，不返回明文 API Key。
 
-前端 Provider API 边界：
+前端 Provider 与 API Key API 边界：
 
-- `frontend/src/api/providers.ts` 负责 `/api/v1/providers` 和 `/api/v1/keys` 相关 response unwrapping 与 payload mapping。
+- `frontend/src/api/providers.ts` 负责 `/api/v1/providers` 相关 response unwrapping 与 payload mapping。
+- `frontend/src/api/apiKeys.ts` 负责 API Key list/create/delete 的 response unwrapping、masked key mapping 和 typed helper；页面不得直接调用 `apiClient` 处理 `/api/v1/keys`。
 - `frontend/src/api/providers.ts` 创建 ProviderConfig 时使用调用方传入的 `providerType` 与 capability flags，不在 API client 中硬编码 Relay Provider。
 - `frontend/src/stores/providerStore.ts` 负责 Provider Settings 的 API orchestration、loading/error/validation 状态、官方 preset Provider 与 Relay Provider 创建分流、Provider test result 和 model listing degraded 状态。
 - Settings Provider row 使用 `/providers/{provider_id}/models` 的结果提供模型选择；model listing degraded 或没有模型时保留 manual model entry，并将当前模型传给 Provider test。
@@ -172,6 +173,8 @@ Provider routes 需要登录认证，使用标准 envelope，新响应字段使�
 - Dashboard metrics 加载失败时只显示局部 error state，保留 Task、Provider 和导航入口可用。
 - Dashboard Agent summary 从 `agentStore` 的 typed Agent state 派生 idle/busy/error 计数，不新增 Dashboard 专用 API payload。
 - 明文 API Key 只存在于 Provider 创建请求的受控表单和提交调用中，不进入 `ProviderConfig` 领域类型或 provider store state。
+- `taskStore` 和 `agentStore` 在后端不可达时保持真实 empty/error 状态，不注入 mock Task、mock Agent、mock Step 或本地伪造 Task。
+- Chat 页面只作为 Task intake surface；提交后调用 `taskStore.createTask()` 并跳转到 Task detail，不产生模拟 Agent response。
 
 ### 6.1 响应 Envelope
 

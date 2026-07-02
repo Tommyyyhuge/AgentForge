@@ -1,5 +1,6 @@
-import { unwrapApiData } from './envelope'
-import type { ApiKey, ApiKeyPermission } from '../types'
+import apiClient from './client'
+import { getApiErrorMessage, unwrapApiData } from './envelope'
+import type { ApiKey, ApiKeyPermission, ApiResponse } from '../types'
 
 type RawRecord = Record<string, unknown>
 export { unwrapApiData }
@@ -18,6 +19,12 @@ export interface ApiKeyPayload {
   createdAt?: string
   last_used_at?: string | null
   lastUsedAt?: string | null
+}
+
+export interface CreateApiKeyInput {
+  provider: string
+  apiKey: string
+  permission?: ApiKeyPermission
 }
 
 function asRecord(value: unknown): RawRecord {
@@ -68,3 +75,23 @@ export function toApiKey(payload: ApiKeyPayload | unknown): ApiKey {
     lastUsedAt: lastUsedAt || undefined,
   }
 }
+
+export async function fetchApiKeys(): Promise<ApiKey[]> {
+  const response = await apiClient.get<ApiResponse<ApiKeyPayload[]> | ApiKeyPayload[]>('/keys')
+  return unwrapApiData(response.data).map(toApiKey)
+}
+
+export async function createApiKey(input: CreateApiKeyInput): Promise<ApiKey> {
+  const response = await apiClient.post<ApiResponse<ApiKeyPayload> | ApiKeyPayload>('/keys', {
+    provider: input.provider,
+    api_key: input.apiKey,
+    permission: input.permission ?? 'write',
+  })
+  return toApiKey(unwrapApiData(response.data))
+}
+
+export async function deleteApiKey(id: string): Promise<void> {
+  await apiClient.delete(`/keys/${id}`)
+}
+
+export { getApiErrorMessage }

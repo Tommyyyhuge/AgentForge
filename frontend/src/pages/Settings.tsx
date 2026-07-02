@@ -22,13 +22,12 @@ import {
 import { useAuthStore } from '../stores/authStore'
 import { useProviderStore } from '../stores/providerStore'
 import { useTheme } from '../hooks/useTheme'
-import apiClient from '../api/client'
-import { toApiKey, unwrapApiData, type ApiKeyPayload } from '../api/apiKeys'
+import { createApiKey, deleteApiKey, fetchApiKeys, getApiErrorMessage } from '../api/apiKeys'
 import Modal from '../components/ui/Modal'
 import Button from '../components/ui/Button'
 import type {
   ApiKey,
-  ApiResponse,
+  ApiKeyPermission,
   CreateProviderFromPresetInput,
   CreateRelayProviderInput,
   ProviderCapabilities,
@@ -57,14 +56,6 @@ interface AuthFormData {
   username: string
   password: string
   email: string
-}
-
-interface ApiErrorLike {
-  response?: {
-    data?: {
-      detail?: string
-    }
-  }
 }
 
 // ============================================================
@@ -927,22 +918,27 @@ function ProviderConfigRow({
 function APIKeySection() {
   const [keys, setKeys] = useState<ApiKey[]>([])
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ provider: 'kimi', api_key: '', permission: 'write' })
+  const [form, setForm] = useState<{
+    provider: string
+    api_key: string
+    permission: ApiKeyPermission
+  }>({ provider: 'kimi', api_key: '', permission: 'write' })
   const [isLoading, setIsLoading] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [keyPendingDelete, setKeyPendingDelete] = useState<ApiKey | null>(null)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadKeys()
+  const loadKeys = useCallback(async () => {
+    try {
+      setKeys(await fetchApiKeys())
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, '加载 API Key 失败'))
+    }
   }, [])
 
-  async function loadKeys() {
-    try {
-      const res = await apiClient.get<ApiResponse<ApiKeyPayload[]> | ApiKeyPayload[]>('/keys')
-      setKeys((unwrapApiData(res.data) || []).map(toApiKey))
-    } catch {
-      // 后端不可用时静默处理
-    }
-  }
+  useEffect(() => {
+    void Promise.resolve().then(loadKeys)
+  }, [loadKeys])
 
   async function handleAdd() {
     setError('')
@@ -952,24 +948,33 @@ function APIKeySection() {
     }
     setIsLoading(true)
     try {
-      await apiClient.post('/keys', form)
+      await createApiKey({
+        provider: form.provider,
+        apiKey: form.api_key,
+        permission: form.permission,
+      })
       await loadKeys()
       setShowAdd(false)
       setForm({ provider: 'kimi', api_key: '', permission: 'write' })
     } catch (err: unknown) {
-      const apiError = err as ApiErrorLike
-      setError(apiError.response?.data?.detail || '添加失败')
+      setError(getApiErrorMessage(err, '添加 API Key 失败'))
     } finally {
       setIsLoading(false)
     }
   }
 
-  async function handleDelete(id: string) {
+  async function confirmDelete() {
+    if (!keyPendingDelete) return
+    setError('')
+    setIsDeleting(true)
     try {
-      await apiClient.delete(`/keys/${id}`)
-      setKeys((prev) => prev.filter((k) => k.id !== id))
-    } catch {
-      // 静默处理
+      await deleteApiKey(keyPendingDelete.id)
+      setKeys((prev) => prev.filter((k) => k.id !== keyPendingDelete.id))
+      setKeyPendingDelete(null)
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, '删除 API Key 失败'))
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -977,6 +982,9 @@ function APIKeySection() {
     kimi: 'Kimi (Moonshot)',
     deepseek: 'DeepSeek',
   }
+  const keyPendingDeleteLabel = keyPendingDelete
+    ? providerLabel[keyPendingDelete.provider] || keyPendingDelete.provider
+    : ''
 
   return (
     <section className="forge-card !bg-surface-dark space-y-4">
@@ -986,8 +994,14 @@ function APIKeySection() {
       </div>
 
       <p className="text-xs text-neutral-500">
-        API Key 采用 AES-128-CBC 加密存储在服务器，使用前自动解密。
+        API Key 在服务器端加密存储，保存后仅显示掩码。
       </p>
+
+      {error && !showAdd && !keyPendingDelete && (
+        <p className="rounded-forge border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-400">
+          {error}
+        </p>
+      )}
 
       {/* 已存 Key 列表 */}
       {keys.length > 0 ? (
@@ -1007,8 +1021,13 @@ function APIKeySection() {
                 </p>
               </div>
               <button
-                onClick={() => handleDelete(key.id)}
+                type="button"
+                onClick={() => {
+                  setError('')
+                  setKeyPendingDelete(key)
+                }}
                 className="ml-3 shrink-0 rounded p-1.5 text-neutral-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                aria-label={`Delete API Key for ${providerLabel[key.provider] || key.provider}`}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -1020,9 +1039,13 @@ function APIKeySection() {
       )}
 
       <Button
+        type="button"
         variant="secondary"
         size="sm"
-        onClick={() => setShowAdd(true)}
+        onClick={() => {
+          setError('')
+          setShowAdd(true)
+        }}
         leftIcon={<Plus className="h-4 w-4" />}
       >
         添加 API Key
@@ -1058,7 +1081,7 @@ function APIKeySection() {
               className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white font-mono placeholder-neutral-500 outline-none focus:border-forge-500"
             />
             <p className="mt-1 text-[11px] text-neutral-500">
-              密钥使用 AES-128-CBC 加密后才存储，无法被明文读取。
+              API Key 在服务器端加密存储，保存后仅显示掩码。
             </p>
           </div>
 
@@ -1066,7 +1089,7 @@ function APIKeySection() {
             <label className="mb-1.5 block text-sm font-medium text-neutral-300">权限</label>
             <select
               value={form.permission}
-              onChange={(e) => setForm((f) => ({ ...f, permission: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, permission: e.target.value as ApiKeyPermission }))}
               className="w-full rounded-forge border border-surface-border bg-surface-bg px-3 py-2 text-sm text-white outline-none focus:border-forge-500"
             >
               <option value="write">write — 可用于 LLM 调用</option>
@@ -1080,11 +1103,50 @@ function APIKeySection() {
           )}
 
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => { setShowAdd(false); setError('') }}>
+            <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); setError('') }}>
               取消
             </Button>
-            <Button variant="primary" onClick={handleAdd} isLoading={isLoading}>
+            <Button type="button" variant="primary" onClick={handleAdd} isLoading={isLoading}>
               保存
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={keyPendingDelete !== null}
+        onClose={() => { setKeyPendingDelete(null); setError('') }}
+        title="删除 API Key"
+        description={`确认删除 ${keyPendingDeleteLabel} 的 API Key？关联的 Provider 可能无法继续调用。`}
+        size="sm"
+      >
+        <div className="space-y-4">
+          {keyPendingDelete && (
+            <div className="rounded-forge border border-surface-border bg-white/[0.02] px-4 py-3">
+              <p className="text-sm font-medium text-white">{keyPendingDeleteLabel}</p>
+              <p className="mt-1 font-mono text-xs text-neutral-400">{keyPendingDelete.maskedKey}</p>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-sm text-red-400">{error}</p>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => { setKeyPendingDelete(null); setError('') }}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={confirmDelete}
+              isLoading={isDeleting}
+            >
+              确认删除
             </Button>
           </div>
         </div>

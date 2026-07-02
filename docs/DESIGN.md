@@ -386,19 +386,26 @@ Timeline 规则：
 
 目的：
 
-- 提供辅助对话入口。
+- 提供辅助 Task intake 入口。
 
 必备内容：
 
-- 会话列表或当前会话。
-- 消息输入框。
+- Task 描述输入框。
+- Create Task 操作。
 - 可用时展示相关 Task/Step 上下文。
-- 流式响应状态。
+- 创建失败时展示局部 error 状态。
 
 规则：
 
 - Chat 不是 Task 的权威记录。
 - 触发 Task 的消息需要链接到对应 Task。
+- Chat 不展示模拟 Agent 回复或伪造 Step。
+
+当前实现：
+
+- Chat 以空状态和 Task 描述表单作为主界面。
+- 提交后创建真实 Task 并跳转到 Task Detail。
+- Task Detail 仍是 Execution、Step 和结果的权威页面。
 
 ### 9.6 Settings
 
@@ -434,6 +441,8 @@ Provider 设置要求：
 - 已配置 Provider 加载 model listing 后展示 model select；listing degraded 或没有模型时展示 manual model entry。
 - Provider test failure 和 model listing degraded 状态在分组内展示，不只依赖 toast。
 - API Key 提交后不在 Provider config 或 store state 中显示明文。
+- API Key 列表通过 typed API helper 加载，不在页面组件中解析原始 backend payload。
+- Delete API Key 使用 danger 操作和确认 modal，并提示关联 Provider 的影响。
 
 API Key 要求：
 
