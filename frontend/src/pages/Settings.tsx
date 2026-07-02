@@ -205,7 +205,7 @@ export default function Settings() {
     <div className="mx-auto max-w-3xl space-y-6 animate-slide-up">
       {/* 标题 */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-white">系统设置</h2>
+        <h2 className="text-2xl font-bold text-white">系统设置</h2>
         <p className="mt-1 text-sm text-neutral-400">管理 API Key、主题和日志级别</p>
       </div>
       <section className="forge-card !bg-surface-dark space-y-5">

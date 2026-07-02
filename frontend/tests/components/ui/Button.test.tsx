@@ -31,9 +31,9 @@ describe('Button', () => {
     expect(container.querySelector('[class*="animate-spin"]')).toBeTruthy()
   })
 
-  it('variant=primary 有 forge 背景色', () => {
+  it('variant=primary 使用品牌 token 背景色', () => {
     render(<Button variant="primary">primary</Button>)
-    expect(screen.getByRole('button').className).toContain('bg-forge-500')
+    expect(screen.getByRole('button').className).toContain('bg-brand-primary')
   })
 
   it('variant=danger 有红色样式', () => {

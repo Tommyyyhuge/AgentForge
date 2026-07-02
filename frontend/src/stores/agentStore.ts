@@ -8,9 +8,9 @@ import { toAgent, unwrapApiData } from '../api/agents'
 // ============================================================
 
 export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
-  idle:      'bg-slate-500/10 text-slate-400 border-slate-500/20',
-  busy:      'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  error:     'bg-red-500/10 text-red-400 border-red-500/20',
+  idle:      'bg-semantic-idle/10 text-semantic-idle border-semantic-idle/20',
+  busy:      'bg-semantic-busy/10 text-semantic-busy border-semantic-busy/20',
+  error:     'bg-semantic-error/10 text-semantic-error border-semantic-error/20',
 }
 
 export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {

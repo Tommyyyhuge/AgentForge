@@ -8,7 +8,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // AgentForge 品牌色系 - 深空主题
+        // AgentForge brand aliases kept for compatibility with existing UI.
         forge: {
           50:  '#eef2ff',
           100: '#dbe4ff',
@@ -28,10 +28,38 @@ export default {
           muted:   'rgba(170, 59, 255, 0.1)',
         },
         surface: {
-          bg:     '#0a0a0a',
-          light:  '#141414',
-          dark:   '#16171d',
+          bg: '#0a0a0a',
+          panel: '#141414',
+          raised: '#181a20',
           border: '#262626',
+          light: '#141414',
+          dark: '#16171d',
+        },
+        text: {
+          primary: '#f5f5f5',
+          secondary: '#a3a3a3',
+          muted: '#737373',
+        },
+        brand: {
+          primary: '#4a72ff',
+          strong: '#1a3fff',
+        },
+        semantic: {
+          pending: '#eab308',
+          planning: '#4a72ff',
+          executing: '#8b5cf6',
+          completed: '#10b981',
+          failed: '#ef4444',
+          cancelled: '#a3a3a3',
+          warning: '#f59e0b',
+          degraded: '#f97316',
+          idle: '#a3a3a3',
+          busy: '#f59e0b',
+          error: '#ef4444',
+          thought: '#4a72ff',
+          action: '#f59e0b',
+          observation: '#22d3ee',
+          final: '#10b981',
         },
       },
       fontFamily: {
@@ -39,7 +67,7 @@ export default {
         mono:  ['ui-monospace', 'Consolas', 'monospace'],
       },
       fontSize: {
-        'display': ['56px', { lineHeight: '1.1', letterSpacing: '-0.03em' }],
+        'display': ['56px', { lineHeight: '1.1' }],
       },
       spacing: {
         '18': '4.5rem',

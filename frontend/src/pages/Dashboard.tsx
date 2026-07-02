@@ -41,8 +41,8 @@ const STAT_CARDS = [
     key: 'running',
     label: '进行中',
     icon: CirclePlay,
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10',
+    color: 'text-semantic-executing',
+    bg: 'bg-semantic-executing/10',
   },
   {
     key: 'completed',
@@ -102,7 +102,7 @@ export default function Dashboard() {
     <div className="mx-auto max-w-6xl space-y-6">
       {/* 欢迎标题 */}
       <div className="animate-slide-up">
-        <h2 className="text-2xl font-bold tracking-tight text-white lg:text-3xl">
+        <h2 className="text-2xl font-bold text-white lg:text-3xl">
           AgentForge 控制台
         </h2>
         <p className="mt-1 text-sm text-neutral-400">
@@ -477,7 +477,7 @@ function SystemPanel({ metrics, loading }: { metrics: SystemMetrics; loading: bo
   const items = [
     { label: 'CPU', value: metrics.cpuUsage, unit: '%', icon: Cpu, color: 'text-forge-400', barColor: 'bg-forge-500' },
     { label: '内存', value: metrics.memoryUsage, unit: '%', icon: HardDrive, color: 'text-amber-400', barColor: 'bg-amber-500' },
-    { label: '活跃任务', value: metrics.activeTasks, unit: '', icon: CirclePlay, color: 'text-purple-400', barColor: 'bg-purple-500', max: 50 },
+    { label: '活跃任务', value: metrics.activeTasks, unit: '', icon: CirclePlay, color: 'text-semantic-executing', barColor: 'bg-semantic-executing', max: 50 },
     { label: '总请求', value: metrics.totalRequests, unit: '', icon: TrendingUp, color: 'text-emerald-400', barColor: 'bg-emerald-500', max: 500 },
   ]
 

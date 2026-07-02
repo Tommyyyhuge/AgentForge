@@ -18,7 +18,7 @@ export interface ButtonProps
 
 const variantClasses = {
   primary:
-    'bg-forge-500 text-white hover:bg-forge-700 active:bg-forge-900 disabled:bg-forge-500/50',
+    'bg-brand-primary text-white hover:bg-brand-strong active:bg-brand-strong disabled:bg-brand-primary/50',
   secondary:
     'bg-white/10 text-white hover:bg-white/15 active:bg-white/20 disabled:bg-white/5 disabled:text-neutral-500',
   ghost:
@@ -61,7 +61,7 @@ export default function Button({
       className={`
         inline-flex items-center justify-center rounded-forge font-medium
         transition-colors duration-200
-        focus:outline-none focus:ring-2 focus:ring-forge-500/50 focus:ring-offset-2 focus:ring-offset-surface-bg
+        focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:ring-offset-2 focus:ring-offset-surface-bg
         disabled:cursor-not-allowed
         ${variantClasses[variant]}
         ${sizeClasses[size]}

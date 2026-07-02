@@ -18,8 +18,8 @@ import type { Agent } from '../types'
 const ROLE_ICONS: Record<string, React.ReactNode> = {
   researcher:    <Bot className="h-4 w-4 text-emerald-400" />,
   coder:         <Bot className="h-4 w-4 text-cyan-400" />,
-  writer:        <Bot className="h-4 w-4 text-forge-400" />,
-  reviewer:      <Bot className="h-4 w-4 text-purple-400" />,
+  writer:        <Bot className="h-4 w-4 text-brand-primary" />,
+  reviewer:      <Bot className="h-4 w-4 text-semantic-executing" />,
   executor:      <Bot className="h-4 w-4 text-amber-400" />,
 }
 
@@ -55,7 +55,7 @@ export default function AgentMonitor() {
       {/* 标题栏 */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Agent 监控</h2>
+          <h2 className="text-2xl font-bold text-white">Agent 监控</h2>
           <p className="mt-1 text-sm text-neutral-400">
             实时监控所有 Agent 的运行状态
           </p>

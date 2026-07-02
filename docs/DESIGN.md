@@ -132,6 +132,12 @@ AgentForge 是面向个人开发者的深色技术控制台。界面应当冷静
 - 大面积背景保持中性。
 - 深色模式下文字对比度必须可读。
 
+当前实现：
+
+- Tailwind 已定义 `surface`、`text`、`brand`、`semantic` token。
+- Task status、Agent status 和 Step type badge 使用 `semantic-*` token，不直接散落硬编码蓝紫状态色。
+- 基础 Button、Card 和全局 `.forge-card`、`.forge-badge` 使用 `rounded-forge`，对应 8px。
+
 ## 7. 字体与文字层级
 
 默认：

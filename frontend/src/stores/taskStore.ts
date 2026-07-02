@@ -18,12 +18,12 @@ export type TaskStreamStatus = 'connecting' | 'connected' | 'disconnected'
 // ============================================================
 
 export const STATUS_COLORS: Record<TaskStatus, string> = {
-  pending:   'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  planning:  'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  executing: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  failed:    'bg-red-500/10 text-red-400 border-red-500/20',
-  cancelled: 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20',
+  pending:   'bg-semantic-pending/10 text-semantic-pending border-semantic-pending/20',
+  planning:  'bg-semantic-planning/10 text-semantic-planning border-semantic-planning/20',
+  executing: 'bg-semantic-executing/10 text-semantic-executing border-semantic-executing/20',
+  completed: 'bg-semantic-completed/10 text-semantic-completed border-semantic-completed/20',
+  failed:    'bg-semantic-failed/10 text-semantic-failed border-semantic-failed/20',
+  cancelled: 'bg-semantic-cancelled/10 text-semantic-cancelled border-semantic-cancelled/20',
 }
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -36,11 +36,11 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 }
 
 export const STEP_TYPE_COLORS: Record<StepDisplayType, string> = {
-  thought:     'border-forge-400 bg-forge-500/10 text-forge-300',
-  action:      'border-amber-500/30 bg-amber-500/10 text-amber-400',
-  observation: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400',
-  final:       'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
-  error:       'border-red-500/30 bg-red-500/10 text-red-400',
+  thought:     'border-semantic-thought/30 bg-semantic-thought/10 text-semantic-thought',
+  action:      'border-semantic-action/30 bg-semantic-action/10 text-semantic-action',
+  observation: 'border-semantic-observation/30 bg-semantic-observation/10 text-semantic-observation',
+  final:       'border-semantic-final/30 bg-semantic-final/10 text-semantic-final',
+  error:       'border-semantic-error/30 bg-semantic-error/10 text-semantic-error',
 }
 
 export const STEP_TYPE_LABELS: Record<StepDisplayType, string> = {

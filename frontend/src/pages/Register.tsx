@@ -109,7 +109,7 @@ export default function Register() {
       >
         {/* Logo */}
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-forge-500/10">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-forge bg-brand-primary/10">
             <Bot className="h-6 w-6 text-forge-400" />
           </div>
           <h1 className="text-2xl font-bold text-white">创建账号</h1>
