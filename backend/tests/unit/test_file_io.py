@@ -11,6 +11,16 @@ import pytest
 from agent_forge.tools.file_io import ALLOWED_DIR, FileReadTool, FileWriteTool
 
 
+def test_file_tools_do_not_expose_workspace_product_term():
+    """工具公开描述不应把文件目录称为 Workspace。"""
+    schema_text = (
+        str(FileReadTool().get_schema()) + str(FileWriteTool().get_schema())
+    )
+
+    assert "Workspace" not in schema_text
+    assert "工作区" not in schema_text
+
+
 class TestFileReadTool:
     """测试文件读取工具"""
 
