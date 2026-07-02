@@ -23,7 +23,6 @@ class TaskStatus(str, Enum):
 class AgentRole(str, Enum):
     """Agent 角色枚举"""
 
-    PLANNER = "planner"
     RESEARCHER = "researcher"
     CODER = "coder"
     WRITER = "writer"

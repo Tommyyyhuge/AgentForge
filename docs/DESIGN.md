@@ -370,6 +370,11 @@ Timeline 规则：
 - Planner 不作为五个内置可执行 Agent 展示。
 - Agent status 和 Task status 视觉上分组区分。
 
+当前实现：
+
+- Agent role 列表只展示 `researcher/coder/writer/reviewer/executor` 五个可执行 Agent。
+- Planner 通过 Task planning 状态和 Execution timeline 保持可见，不作为 Agent row、Agent message receiver 或 Agent worker 展示。
+
 ### 9.5 Chat
 
 目的：

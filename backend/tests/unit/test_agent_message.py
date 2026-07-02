@@ -25,6 +25,15 @@ class TestAgentMessageTool:
     def tool(self, mock_bus):
         return AgentMessageTool(a2a_bus=mock_bus)
 
+    def test_schema_examples_use_only_executable_agent_roles(self, tool):
+        """Tool schema should not present Planner as an Agent receiver."""
+        schema = tool.schema
+        receiver_description = schema.parameters["receiver_role"]["description"]
+        example_roles = {example["receiver_role"] for example in schema.examples}
+
+        assert "planner" not in receiver_description
+        assert "planner" not in example_roles
+
     @pytest.mark.asyncio
     async def test_send_message(self, tool, mock_bus):
         """测试发送消息（点对点模式）"""
@@ -60,23 +69,37 @@ class TestAgentMessageTool:
         mock_bus.send.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_message_to_planner_is_rejected(self, tool, mock_bus):
+        """Planner is not an executable Agent receiver."""
+        mock_bus.send = AsyncMock()
+
+        result = await tool.execute(
+            receiver_role="planner",
+            message="Next step?",
+        )
+
+        assert "Planner" in result
+        assert "not an executable Agent" in result
+        mock_bus.send.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_message_formatting(self, tool, mock_bus):
         """测试消息格式化"""
         mock_bus.send = AsyncMock()
 
         result = await tool.execute(
-            receiver_role="planner",
+            receiver_role="reviewer",
             message="任务完成",
         )
 
-        assert "planner" in result
+        assert "reviewer" in result
         assert "任务完成" in result
 
     @pytest.mark.asyncio
     async def test_request_response_mode(self, tool, mock_bus):
         """测试请求-响应模式"""
         response_msg = A2AMessage(
-            sender_id="planner",
+            sender_id="reviewer",
             content="好的，收到并处理。",
             receiver_id="agent_message_tool",
             message_type="response",
@@ -84,7 +107,7 @@ class TestAgentMessageTool:
         mock_bus.request_response = AsyncMock(return_value=response_msg)
 
         result = await tool.execute(
-            receiver_role="planner",
+            receiver_role="reviewer",
             message="下一步计划是什么？",
             wait_response=True,
             timeout=15.0,
@@ -100,7 +123,7 @@ class TestAgentMessageTool:
         mock_bus.request_response = AsyncMock(return_value=None)
 
         result = await tool.execute(
-            receiver_role="planner",
+            receiver_role="reviewer",
             message="还在吗？",
             wait_response=True,
             timeout=5.0,
@@ -117,5 +140,5 @@ class TestAgentMessageTool:
     @pytest.mark.asyncio
     async def test_empty_message(self, tool):
         """测试空消息处理"""
-        result = await tool.execute(receiver_role="planner", message="")
+        result = await tool.execute(receiver_role="reviewer", message="")
         assert "不能为空" in result

@@ -349,6 +349,63 @@ class TestLLMRouter:
         mock_provider.chat.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_route_records_success_provider_metric(self, router, mock_provider):
+        mock_provider.chat = AsyncMock(
+            return_value=LLMResponse(
+                content="ok",
+                model="test-model",
+                usage={
+                    "prompt_tokens": 4,
+                    "completion_tokens": 6,
+                    "total_tokens": 10,
+                },
+                latency_ms=123,
+            )
+        )
+        router.register_provider("test", mock_provider)
+        router._record_provider_metric_for_active_task = AsyncMock()
+
+        await router.route(
+            messages=[{"role": "user", "content": "private prompt"}],
+            provider="test",
+            model="test-model",
+        )
+
+        router._record_provider_metric_for_active_task.assert_awaited_once_with(
+            {
+                "provider": "test",
+                "model": "test-model",
+                "latencyMs": 123,
+                "inputTokens": 4,
+                "outputTokens": 6,
+                "totalTokens": 10,
+                "status": "success",
+            }
+        )
+
+    @pytest.mark.asyncio
+    async def test_route_records_failure_provider_metric(self, router, mock_provider):
+        mock_provider.chat = AsyncMock(
+            side_effect=LLMException("provider_timeout: timed out")
+        )
+        router.register_provider("test", mock_provider)
+        router._record_provider_metric_for_active_task = AsyncMock()
+
+        with pytest.raises(LLMException):
+            await router.route(
+                messages=[{"role": "user", "content": "private prompt"}],
+                provider="test",
+                model="test-model",
+            )
+
+        metric = router._record_provider_metric_for_active_task.await_args.args[0]
+        assert metric["provider"] == "test"
+        assert metric["model"] == "test-model"
+        assert metric["status"] == "failed"
+        assert metric["errorCategory"] == "provider_timeout"
+        assert "private prompt" not in str(metric)
+
+    @pytest.mark.asyncio
     async def test_route_with_complexity(self, router, mock_provider):
         """测试按复杂度路由"""
         router.register_provider("test", mock_provider)

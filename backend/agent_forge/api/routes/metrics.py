@@ -51,6 +51,23 @@ class SystemMetricsResponse(BaseModel):
     totalRequests: int
 
 
+class ProviderErrorCategoryResponse(BaseModel):
+    category: str
+    count: int
+
+
+class ProviderMetricResponse(BaseModel):
+    provider: str
+    model: str
+    calls: int
+    failures: int
+    avgLatencyMs: int
+    inputTokens: int
+    outputTokens: int
+    totalTokens: int
+    errorCategories: list[ProviderErrorCategoryResponse]
+
+
 # ============================================================
 # API 端点
 # ============================================================
@@ -109,6 +126,21 @@ async def get_token_metrics(
     logger.info(f"用户 {user.username} 查询 Token 指标，时间范围: {range_hours}h")
     data = await MetricsService.get_token_metrics(db, range_hours or 24)
     return success_response(TokenMetricsResponse(**data))
+
+
+@router.get(
+    "/providers",
+    response_model=None,
+    summary="Provider and model observability metrics",
+)
+async def get_provider_metrics(
+    range_hours: Optional[int] = Query(default=24, ge=1, le=168, description="鏃堕棿鑼冨洿锛堝皬鏃讹級"),
+    user: UserORM = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    logger.info(f"鐢ㄦ埛 {user.username} 鏌ヨ Provider 鎸囨爣锛屾椂闂磋寖鍥? {range_hours}h")
+    data = await MetricsService.get_provider_metrics(db, range_hours or 24)
+    return success_response([ProviderMetricResponse(**item) for item in data])
 
 
 @router.get(

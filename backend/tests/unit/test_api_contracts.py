@@ -145,6 +145,49 @@ async def test_metrics_returns_standard_success_envelope(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_provider_metrics_route_returns_standard_success_envelope(monkeypatch):
+    user = UserORM(
+        id="user-1",
+        username="alice",
+        email="alice@example.com",
+        hashed_password="hashed",
+        is_active=True,
+        created_at=datetime.now(timezone.utc),
+    )
+    monkeypatch.setattr(
+        metric_routes.MetricsService,
+        "get_provider_metrics",
+        AsyncMock(
+            return_value=[
+                {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "calls": 2,
+                    "failures": 1,
+                    "avgLatencyMs": 180,
+                    "inputTokens": 30,
+                    "outputTokens": 30,
+                    "totalTokens": 60,
+                    "errorCategories": [
+                        {"category": "provider_timeout", "count": 1}
+                    ],
+                }
+            ]
+        ),
+    )
+
+    response = await metric_routes.get_provider_metrics(
+        range_hours=24,
+        user=user,
+        db=_FakeSession(),
+    )
+
+    assert response["success"] is True
+    assert response["data"][0]["provider"] == "openai"
+    assert response["data"][0]["errorCategories"][0]["category"] == "provider_timeout"
+
+
+@pytest.mark.asyncio
 async def test_agent_list_bootstraps_builtin_agents_when_table_is_empty():
     db = _FakeSession()
     response = await agent_routes.list_agents(db=db)

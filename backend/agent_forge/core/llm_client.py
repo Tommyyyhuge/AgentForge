@@ -6,6 +6,7 @@ AgentForge LLM 客户端模块
 """
 import time
 from abc import ABC, abstractmethod
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, List, Optional
 
@@ -19,6 +20,7 @@ from agent_forge.core.providers import (
     ProviderAdapter,
     ProviderAdapterError,
     ProviderAdapterResolver,
+    ProviderErrorCategory,
     ProviderRegistry,
     ProviderType,
     TokenUsage,
@@ -26,6 +28,19 @@ from agent_forge.core.providers import (
 from agent_forge.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+_provider_metrics_task_id: ContextVar[Optional[str]] = ContextVar(
+    "provider_metrics_task_id",
+    default=None,
+)
+
+
+def bind_provider_metrics_task(task_id: str):
+    return _provider_metrics_task_id.set(task_id)
+
+
+def reset_provider_metrics_task(token) -> None:
+    _provider_metrics_task_id.reset(token)
 
 
 @dataclass
@@ -417,7 +432,8 @@ class LLMRouter:
         Returns:
             LLMResponse 实例
         """
-        llm_provider = self.get_provider(provider)
+        provider_name = self._select_provider_name(provider)
+        llm_provider = self.get_provider(provider_name)
 
         # 如果未指定模型，根据复杂度选择
         if not model and complexity in self.COMPLEXITY_MODELS:
@@ -428,7 +444,44 @@ class LLMRouter:
             f"model={model or 'default'}, complexity={complexity}"
         )
 
-        return await llm_provider.chat(messages=messages, model=model, **kwargs)
+        start_time = time.time()
+        try:
+            response = await llm_provider.chat(messages=messages, model=model, **kwargs)
+        except Exception as exc:
+            latency_ms = int((time.time() - start_time) * 1000)
+            await self._record_provider_metric_for_active_task(
+                {
+                    "provider": provider_name,
+                    "model": model or "default",
+                    "latencyMs": latency_ms,
+                    "status": "failed",
+                    "errorCategory": self._provider_error_category(exc),
+                }
+            )
+            raise
+
+        usage = response.usage or {}
+        input_tokens = usage.get("input_tokens", usage.get("prompt_tokens", 0))
+        output_tokens = usage.get(
+            "output_tokens",
+            usage.get("completion_tokens", 0),
+        )
+        await self._record_provider_metric_for_active_task(
+            {
+                "provider": provider_name,
+                "model": response.model or model or "default",
+                "latencyMs": response.latency_ms
+                or int((time.time() - start_time) * 1000),
+                "inputTokens": input_tokens,
+                "outputTokens": output_tokens,
+                "totalTokens": usage.get(
+                    "total_tokens",
+                    input_tokens + output_tokens,
+                ),
+                "status": "success",
+            }
+        )
+        return response
 
     async def route_stream(  # type: ignore[override]
         self,
@@ -465,3 +518,35 @@ class LLMRouter:
         for name, provider in self.providers.items():
             await provider.close()
             logger.info(f"已关闭 LLM 提供商连接: {name}")
+
+    def _select_provider_name(self, provider: Optional[str]) -> str:
+        if provider and provider in self.providers:
+            return provider
+        if self.fallback_chain:
+            return self.fallback_chain[0]
+        return provider or "unknown"
+
+    async def _record_provider_metric_for_active_task(
+        self,
+        metric: Dict[str, Any],
+    ) -> None:
+        task_id = _provider_metrics_task_id.get()
+        if not task_id:
+            return
+
+        try:
+            from agent_forge.core.metrics_service import MetricsService
+            from agent_forge.database.connection import async_session
+
+            async with async_session() as db:
+                await MetricsService.append_provider_metric(db, task_id, metric)
+        except Exception as exc:
+            logger.warning("Provider metric recording failed: %s", exc)
+
+    @staticmethod
+    def _provider_error_category(exc: Exception) -> str:
+        message = str(exc)
+        for category in ProviderErrorCategory:
+            if message.startswith(category.value):
+                return category.value
+        return ProviderErrorCategory.UNKNOWN_ERROR.value

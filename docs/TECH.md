@@ -544,6 +544,13 @@ Provider error category：
 - metrics 表中的敏感 prompt 内容。
 - 默认情况下的完整 provider raw response。
 
+Current implementation:
+- `LLMRouter.route()` records safe Provider metrics for the active Task when a Task execution context is bound.
+- Metrics are appended to `TaskORM.task_metadata.provider_metrics` as a whitelisted record: `provider`, `model`, `latencyMs`, `inputTokens`, `outputTokens`, `totalTokens`, `status`, and normalized `errorCategory`.
+- `MetricsService.append_provider_metric()` rejects malformed records and never persists prompt text, API Key material, Authorization headers, or raw Provider responses.
+- `GET /api/v1/metrics/providers` returns a standard envelope with Provider/model call counts, failures, average latency, token totals, and error-category counts.
+- `frontend/src/api/metrics.ts` exposes `fetchProviderMetrics()` and `toProviderMetrics()` so frontend callers consume typed, sanitized Provider metric objects.
+
 ## 12. 配置
 
 环境变量：
@@ -607,7 +614,8 @@ npm run build
 
 - 保留 `/api/v1` 路径，除非明确记录迁移。
 - 保留当前 Task status。
-- 保留内置 Agent role name。
+- 保留内置可执行 Agent role name：`researcher`、`coder`、`writer`、`reviewer`、`executor`。
+- `planner` 是 planning component，不属于 `AgentRole`，不得作为可执行 Agent 或 Agent-to-Agent message receiver 暴露。
 - 保留当前本地开发路径，除非明确记录。
 - 通过 Alembic 保留现有数据。
 - 不移除 SQLite 开发支持。

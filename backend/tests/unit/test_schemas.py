@@ -90,13 +90,13 @@ class TestAgentStep:
         step = AgentStep(
             task_id="task-123",
             agent_id="agent-456",
-            agent_role=AgentRole.PLANNER,
+            agent_role=AgentRole.REVIEWER,
             step_number=1,
             step_type=StepType.THOUGHT,
             content="思考内容",
         )
         assert step.task_id == "task-123"
-        assert step.agent_role == AgentRole.PLANNER
+        assert step.agent_role == AgentRole.REVIEWER
         assert step.step_type == StepType.THOUGHT
         assert step.content == "思考内容"
 
@@ -207,12 +207,22 @@ class TestEnums:
 
     def test_agent_role_values(self):
         """测试 Agent 角色枚举值"""
-        assert AgentRole.PLANNER.value == "planner"
+        assert [role.value for role in AgentRole] == [
+            "researcher",
+            "coder",
+            "writer",
+            "reviewer",
+            "executor",
+        ]
         assert AgentRole.RESEARCHER.value == "researcher"
         assert AgentRole.CODER.value == "coder"
         assert AgentRole.WRITER.value == "writer"
         assert AgentRole.REVIEWER.value == "reviewer"
         assert AgentRole.EXECUTOR.value == "executor"
+
+    def test_planner_is_not_executable_agent_role(self):
+        """Planner is a planning component, not an executable Agent role."""
+        assert "planner" not in {role.value for role in AgentRole}
 
     def test_step_type_values(self):
         """测试步骤类型枚举值"""

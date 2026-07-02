@@ -368,6 +368,23 @@ export interface AgentMetric {
   avgDuration: number
 }
 
+export interface ProviderErrorCategoryMetric {
+  category: string
+  count: number
+}
+
+export interface ProviderMetric {
+  provider: string
+  model: string
+  calls: number
+  failures: number
+  avgLatencyMs: number
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  errorCategories: ProviderErrorCategoryMetric[]
+}
+
 export interface SystemMetrics {
   cpuUsage: number
   memoryUsage: number

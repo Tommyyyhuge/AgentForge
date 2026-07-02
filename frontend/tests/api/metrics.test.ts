@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   toAgentMetrics,
+  toProviderMetrics,
   toSystemMetrics,
   toTaskDurationMetrics,
   unwrapApiData,
@@ -48,5 +49,39 @@ describe('metrics API mapping', () => {
       activeTasks: 2,
       totalRequests: 0,
     })
+  })
+
+  it('maps provider metrics and drops unknown sensitive fields', () => {
+    const result = toProviderMetrics([
+      {
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        calls: 2,
+        failures: 1,
+        avgLatencyMs: 180,
+        inputTokens: 30,
+        outputTokens: 30,
+        totalTokens: 60,
+        errorCategories: [{ category: 'provider_timeout', count: 1 }],
+        apiKey: 'sk-secret',
+        prompt: 'private prompt',
+      },
+    ])
+
+    expect(result).toEqual([
+      {
+        provider: 'openai',
+        model: 'gpt-4o-mini',
+        calls: 2,
+        failures: 1,
+        avgLatencyMs: 180,
+        inputTokens: 30,
+        outputTokens: 30,
+        totalTokens: 60,
+        errorCategories: [{ category: 'provider_timeout', count: 1 }],
+      },
+    ])
+    expect(JSON.stringify(result)).not.toContain('sk-secret')
+    expect(JSON.stringify(result)).not.toContain('private prompt')
   })
 })

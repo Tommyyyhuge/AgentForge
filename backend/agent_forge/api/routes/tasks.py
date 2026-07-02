@@ -19,7 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_forge.api.responses import success_response
 from agent_forge.core.cancellation import CancellationToken
-from agent_forge.core.llm_client import LLMRouter
+from agent_forge.core.llm_client import (
+    LLMRouter,
+    bind_provider_metrics_task,
+    reset_provider_metrics_task,
+)
 from agent_forge.core.orchestrator import Orchestrator
 from agent_forge.core.planner import Planner
 from agent_forge.database.connection import get_db
@@ -173,6 +177,7 @@ async def _background_execute(
         task_description: 任务描述
     """
     cancel_token = _cancel_tokens.get(task_id, CancellationToken())
+    metrics_token = bind_provider_metrics_task(task_id)
 
     try:
         # 1. 规划
@@ -222,6 +227,8 @@ async def _background_execute(
                 task.status = TaskStatus.FAILED.value
                 task.updated_at = datetime.now(timezone.utc)
                 await db.commit()
+    finally:
+        reset_provider_metrics_task(metrics_token)
 
 
 # ---------------------------------------------------------------------------

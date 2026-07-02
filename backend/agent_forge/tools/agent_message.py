@@ -63,7 +63,7 @@ class AgentMessageTool(BaseTool):
             parameters={
                 "receiver_role": {
                     "type": "string",
-                    "description": "接收消息的 Agent 角色名（如 planner, researcher, coder）",
+                    "description": "接收消息的可执行 Agent 角色名（如 researcher, coder, reviewer）",
                 },
                 "message": {
                     "type": "string",
@@ -87,8 +87,8 @@ class AgentMessageTool(BaseTool):
                     "message": "请搜索最新的 Python 异步编程资料",
                 },
                 {
-                    "receiver_role": "planner",
-                    "message": "当前任务已完成，下一步计划是什么？",
+                    "receiver_role": "reviewer",
+                    "message": "当前任务已完成，请审查输出质量。",
                     "wait_response": True,
                     "timeout": 15.0,
                 },
@@ -125,6 +125,12 @@ class AgentMessageTool(BaseTool):
 
         if not message or not message.strip():
             return "[消息错误] 消息内容不能为空"
+
+        if receiver_role.strip().lower() == "planner":
+            return (
+                "[消息错误] Planner is a planning component, not an executable "
+                "Agent receiver. Use researcher, coder, writer, reviewer, or executor."
+            )
 
         # 创建 A2A 消息
         a2a_msg: A2AMessage = A2AMessage(

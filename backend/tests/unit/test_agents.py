@@ -276,7 +276,7 @@ class TestAgentFactory:
         router = _mock_llm_router()
 
         with pytest.raises(ValueError, match="未注册的 Agent 角色"):
-            AgentFactory.create(AgentRole.PLANNER, llm_router=router)
+            AgentFactory.create(AgentRole.WRITER, llm_router=router)
 
     def test_list_roles(self):
         """列出已注册角色"""
@@ -292,7 +292,7 @@ class TestAgentFactory:
 
     def test_unregister_nonexistent(self):
         """取消注册不存在的角色无异常"""
-        AgentFactory.unregister(AgentRole.PLANNER)
+        AgentFactory.unregister(AgentRole.WRITER)
 
     def test_clear_registry(self):
         """清空所有注册"""
