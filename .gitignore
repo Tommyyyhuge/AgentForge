@@ -53,6 +53,7 @@ logs/
 .coverage
 htmlcov/
 .tox/
+backend/test_output.txt
 
 # Frontend
 node_modules/
@@ -77,3 +78,5 @@ dump.rdb
 *.bak
 *.tmp
 *.temp
+.playwright-mcp/
+dashboard-*-summary.md
