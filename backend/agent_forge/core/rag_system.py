@@ -1,8 +1,8 @@
 """
-AgentForge RAG 检索增强系统
+AgentForge Memory Retrieval 后端
 
 提供文档导入、分块、向量化存储和语义检索功能。
-复用 MemoryManager 的向量存储（ChromaDB/SQLite）和嵌入能力。
+作为 Memory 的执行上下文检索能力，复用 MemoryManager 的向量存储（ChromaDB/SQLite）和嵌入能力。
 
 设计原则：
 - 文档块通过 add_long_term 存入 MemoryManager，元数据标记来源
@@ -88,7 +88,7 @@ class Document:
 
 
 class RAGException(Exception):
-    """RAG 系统异常基类 — 用于区分 RAG 特定错误与其他异常"""
+    """Memory Retrieval 异常基类 — 用于区分检索后端错误与其他异常"""
     pass
 
 
@@ -103,10 +103,11 @@ class UnsupportedDocumentType(RAGException):
 
 
 class RAGSystem:
-    """RAG 检索增强系统
+    """Memory Retrieval 后端
 
     提供文档导入、分块、向量化和检索功能。
     复用 MemoryManager 的向量存储进行持久化和语义搜索。
+    类名保留为 RAGSystem 以兼容现有内部调用。
 
     使用示例::
 
@@ -123,7 +124,7 @@ class RAGSystem:
     # 检索时从不同来源获取的数量倍数
     RETRIEVE_MULTIPLIER = 2
 
-    # 元数据标记，用于区分 RAG 文档块和普通长期记忆
+    # 元数据标记，用于区分外部文档片段和普通长期记忆
     RAG_META_KEY = "_rag_type"
     RAG_META_VALUE = "doc_chunk"
 
@@ -132,7 +133,7 @@ class RAGSystem:
         memory_manager: Any,
         llm_router: Optional[Any] = None,
     ):
-        """初始化 RAG 系统
+        """初始化 Memory Retrieval 后端
 
         Args:
             memory_manager: MemoryManager 实例，用于向量存储和检索
@@ -151,7 +152,7 @@ class RAGSystem:
         self._documents: Dict[str, Document] = {}
 
         logger.info(
-            "RAGSystem initialized, llm_router=%s",
+            "Memory Retrieval backend initialized, llm_router=%s",
             "available" if llm_router else "not available",
         )
 
@@ -544,7 +545,7 @@ class RAGSystem:
     ) -> None:
         """将单个分块存入 MemoryManager
 
-        使用 add_long_term 存储，元数据标记为 RAG 文档块。
+        使用 add_long_term 存储，元数据标记为外部文档片段。
         ChromaDB 不可用时自动降级到 SQLite。
 
         Args:
@@ -593,7 +594,7 @@ class RAGSystem:
         流程:
         1. 从 MemoryManager 长期记忆搜索（优先向量检索，降级文本匹配）
         2. 从 MemoryManager 外部记忆搜索
-        3. 合并结果，过滤出 RAG 文档块
+        3. 合并结果，过滤出外部文档片段
         4. 按相关性排序，去重
 
         Args:
@@ -608,7 +609,7 @@ class RAGSystem:
             logger.warning("检索查询为空")
             return []
 
-        logger.info("RAG 检索: query=%s, limit=%d", query[:50], limit)
+        logger.info("Memory Retrieval: query=%s, limit=%d", query[:50], limit)
 
         # 步骤 1: 从长期记忆搜索
         long_term_results = await self._search_long_term(query, limit)
@@ -631,7 +632,8 @@ class RAGSystem:
             merged = self._apply_filters(merged, filters)
 
         logger.info(
-            "RAG 检索完成: query=%s, found=%d (long_term=%d, external=%d, memory=%d)",
+            "Memory Retrieval complete: query=%s, found=%d "
+            "(long_term=%d, external=%d, memory=%d)",
             query[:30],
             len(merged),
             len(long_term_results),
@@ -645,7 +647,7 @@ class RAGSystem:
         query: str,
         limit: int,
     ) -> List[DocumentChunk]:
-        """从长期记忆搜索 RAG 文档块"""
+        """从长期记忆搜索外部文档片段"""
         try:
             entries = await self.memory_manager.search_long_term(
                 query=query,
@@ -656,7 +658,7 @@ class RAGSystem:
             for entry in entries:
                 meta = entry.metadata or {}
 
-                # 只取标记为 RAG 文档块的条目
+                # 只取标记为外部文档片段的条目
                 if meta.get(self.RAG_META_KEY) == self.RAG_META_VALUE:
                     chunk = DocumentChunk(
                         id=meta.get("chunk_id", entry.id),
@@ -824,8 +826,8 @@ class RAGSystem:
     ) -> str:
         """生成增强提示
 
-        检索相关知识，组装成增强的提示词。
-        格式: "根据以下知识回答用户问题:\n\n[知识1]\n...\n\n用户问题: ..."
+        检索相关 Memory 和外部文档片段，组装成增强的提示词。
+        格式: "根据以下参考上下文回答用户问题:\n\n[上下文片段1]\n...\n\n用户问题: ..."
 
         Args:
             query: 用户查询
@@ -846,10 +848,10 @@ class RAGSystem:
 
         # 构建增强提示
         parts: List[str] = [
-            "你是一个知识库助手。请根据以下参考知识回答用户的问题。",
-            "如果参考知识不足以回答问题，请如实说明，不要编造信息。",
+            "你是一个 Memory Retrieval 助手。请根据以下 Memory 和外部文档片段回答用户的问题。",
+            "如果参考上下文不足以回答问题，请如实说明，不要编造信息。",
             "",
-            "=== 参考知识 ===",
+            "=== 参考上下文 ===",
         ]
 
         for i, chunk in enumerate(chunks, 1):
@@ -857,7 +859,7 @@ class RAGSystem:
             doc = self._documents.get(chunk.doc_id)
             if doc:
                 source_info = f"（来源: {doc.source} ）"
-            parts.append(f"[知识块 {i}]{source_info}")
+            parts.append(f"[上下文片段 {i}]{source_info}")
             parts.append(chunk.content)
             parts.append("")
 
@@ -869,7 +871,7 @@ class RAGSystem:
         parts.append("=== 用户问题 ===")
         parts.append(query)
         parts.append("")
-        parts.append("请基于上述参考知识回答问题：")
+        parts.append("请基于上述参考上下文回答问题：")
 
         result = "\n".join(parts)
 

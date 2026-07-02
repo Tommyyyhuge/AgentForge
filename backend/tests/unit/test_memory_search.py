@@ -1,7 +1,7 @@
 """
 记忆搜索工具测试
 
-测试 MemorySearchTool 的 RAG 检索、无 RAG 降级、结果格式化等功能。
+测试 MemorySearchTool 的 Memory Retrieval 检索、降级、结果格式化等功能。
 """
 from unittest.mock import AsyncMock, MagicMock
 
@@ -23,6 +23,17 @@ def _make_chunk(doc_id: str, content: str, chunk_id: str = "chunk_0", index: int
 
 class TestMemorySearchTool:
     """测试记忆搜索工具"""
+
+    def test_schema_uses_memory_retrieval_language(self):
+        """工具 schema 应把检索描述为 Memory Retrieval 而非 Knowledge Base。"""
+        tool = MemorySearchTool(rag_system=None)
+        schema_text = str(tool.get_schema())
+
+        assert "Memory Retrieval" in schema_text
+        assert "Knowledge Base" not in schema_text
+        assert "knowledge_base" not in schema_text
+        assert "知识库" not in schema_text
+        assert "RAG" not in schema_text
 
     @pytest.mark.asyncio
     async def test_search_with_mock_data(self):
@@ -52,12 +63,15 @@ class TestMemorySearchTool:
 
     @pytest.mark.asyncio
     async def test_search_without_rag(self):
-        """测试无 RAGSystem 时的降级提示"""
+        """测试无检索后端时的降级提示"""
         tool = MemorySearchTool(rag_system=None)
         result = await tool.execute(query="测试查询", limit=5)
 
         assert "未初始化" in result or "未配置" in result
-        assert "RAG" in result
+        assert "Memory Retrieval" in result
+        assert "RAG" not in result
+        assert "Knowledge Base" not in result
+        assert "知识库" not in result
 
     @pytest.mark.asyncio
     async def test_search_result_formatting(self):

@@ -6,7 +6,7 @@ AgentForge 三层记忆管理系统
 设计原则：
 - 短期记忆：内存 List，FIFO 淘汰，最大 50 条
 - 长期记忆：优先 ChromaDB 向量存储，降级到 SQLite 文本匹配
-- 外部记忆：Mock 实现，可后续接入真实知识库
+- 外部记忆：Mock 实现，可后续接入外部文档源
 """
 import hashlib
 import uuid
@@ -25,7 +25,7 @@ class MemoryType(str, Enum):
 
     SHORT_TERM = "short_term"  # 短期记忆（内存）
     LONG_TERM = "long_term"  # 长期记忆（ChromaDB / SQLite）
-    EXTERNAL = "external"  # 外部记忆（知识库/文档）
+    EXTERNAL = "external"  # 外部记忆（外部文档源）
 
 
 class MemoryEntry:
@@ -605,7 +605,7 @@ class MemoryManager:
 
         Args:
             content: 记忆内容
-            source: 来源（如 "knowledge_base", "document"）
+            source: 来源（如 "external_document", "document"）
             metadata: 额外元数据
 
         Returns:
@@ -638,7 +638,7 @@ class MemoryManager:
             匹配的记忆条目列表
         """
         logger.debug("External search (mock) for: %s", query)
-        # Mock: 返回空列表，后续接入真实知识库
+        # Mock: 返回空列表，后续接入外部文档源
         return []
 
     # =========================================================================
