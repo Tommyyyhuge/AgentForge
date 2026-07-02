@@ -27,7 +27,7 @@ import {
   type SystemMetrics,
   type TaskDurationMetric,
 } from '../api/metrics'
-import type { Agent, AgentStatus, ProviderConfig, ProviderHealthResult, Task } from '../types'
+import type { Agent, AgentStatus, ProviderConfig, ProviderHealthResult, Task, TaskStatus } from '../types'
 
 const STAT_CARDS = [
   {
@@ -54,6 +54,7 @@ const STAT_CARDS = [
 ] as const
 
 const AGENT_SUMMARY_STATUSES: AgentStatus[] = ['busy', 'idle', 'error']
+const TASK_STATUS_SUMMARY: TaskStatus[] = ['pending', 'planning', 'executing', 'completed', 'failed', 'cancelled']
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -88,6 +89,13 @@ export default function Dashboard() {
   const runningTasks = tasks.filter((t: Task) => t.status === 'executing').length
   const completedTasks = tasks.filter((t: Task) => t.status === 'completed').length
   const statValues = { total: totalTasks, running: runningTasks, completed: completedTasks }
+  const taskStatusCounts = tasks.reduce<Record<TaskStatus, number>>(
+    (counts, task) => {
+      counts[task.status] += 1
+      return counts
+    },
+    { pending: 0, planning: 0, executing: 0, completed: 0, failed: 0, cancelled: 0 },
+  )
 
   const recentAgents = agents.slice(0, 4)
   const agentStatusCounts = agents.reduce<Record<AgentStatus, number>>(
@@ -129,6 +137,32 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      <TaskStatusCounts counts={taskStatusCounts} />
+
+      {!tasksLoading && totalTasks === 0 && (
+        <section
+          aria-label="New user next step"
+          className="forge-card !bg-surface-dark animate-slide-up border-brand-primary/20"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-white">Create your first Task</h3>
+              <p className="mt-1 text-sm text-neutral-400">
+                Create your first Task to start an Execution.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/tasks')}
+              className="forge-btn-primary inline-flex shrink-0 items-center justify-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Create Task
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* 性能图表 */}
       <ProviderStatusPanel
@@ -306,6 +340,27 @@ export default function Dashboard() {
 // ============================================================
 // 图表组件
 // ============================================================
+
+function TaskStatusCounts({ counts }: { counts: Record<TaskStatus, number> }) {
+  return (
+    <section
+      aria-label="Task status counts"
+      className="grid grid-cols-2 gap-3 animate-slide-up md:grid-cols-3 xl:grid-cols-6"
+    >
+      {TASK_STATUS_SUMMARY.map((status) => (
+        <div
+          key={status}
+          className={`rounded-forge border px-3 py-2 ${STATUS_COLORS[status]}`}
+        >
+          <p className="text-sm font-semibold tabular-nums">
+            {counts[status]} {status}
+          </p>
+          <p className="mt-0.5 text-xs opacity-80">{STATUS_LABELS[status]}</p>
+        </div>
+      ))}
+    </section>
+  )
+}
 
 function ProviderStatusPanel({
   providers,

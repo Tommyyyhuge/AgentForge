@@ -300,7 +300,8 @@ Provider 表单必须包含：
 
 当前实现：
 
-- Dashboard 顶部展示 Task 状态计数。
+- Dashboard 顶部展示 Task 总数、关键执行计数和 `pending/planning/executing/completed/failed/cancelled` 全状态计数。
+- 新用户没有 Task 时展示明确的 Create Task 下一步入口。
 - Dashboard 展示 Provider 状态面板；没有 active Provider 或没有 active healthy Provider 时显示 warning 并提供 Provider Settings 入口。
 - Provider 状态面板显示 active Provider、默认模型和已有 health 状态，不在 Dashboard 自动发起供应商连接测试。
 - Metrics 加载失败时 Dashboard 在 metrics 区域显示局部错误状态，保留 Create Task、Provider Settings 和页面导航。

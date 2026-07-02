@@ -24,6 +24,7 @@ const storeMocks = vi.hoisted(() => ({
     isLoading: false,
     error: null as string | null,
     fetchProviderSettings: vi.fn(),
+    testProviderConfig: vi.fn(),
   },
 }))
 
@@ -88,6 +89,7 @@ describe('Dashboard Provider status', () => {
     storeMocks.providerState.healthByProviderId = {}
     storeMocks.providerState.isLoading = false
     storeMocks.providerState.error = null
+    storeMocks.providerState.testProviderConfig.mockClear()
     storeMocks.metrics.fetchDashboardMetrics.mockResolvedValue({
       taskMetrics: [],
       agentMetrics: [],
@@ -162,6 +164,56 @@ describe('Dashboard Provider status', () => {
     expect(await screen.findByText('Metrics unavailable')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '创建任务' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Provider Settings' })).toBeInTheDocument()
+  })
+
+  it('summarizes every Task status without requiring Task detail navigation', () => {
+    storeMocks.taskState.tasks = [
+      { id: 'task-pending', title: 'Pending task', status: 'pending', createdAt: '2026-07-01T08:00:00Z' },
+      { id: 'task-planning', title: 'Planning task', status: 'planning', createdAt: '2026-07-01T09:00:00Z' },
+      { id: 'task-executing', title: 'Executing task', status: 'executing', createdAt: '2026-07-01T10:00:00Z' },
+      { id: 'task-completed', title: 'Completed task', status: 'completed', createdAt: '2026-07-01T11:00:00Z' },
+      { id: 'task-failed', title: 'Failed task', status: 'failed', createdAt: '2026-07-01T12:00:00Z' },
+      { id: 'task-cancelled', title: 'Cancelled task', status: 'cancelled', createdAt: '2026-07-01T13:00:00Z' },
+    ]
+
+    renderDashboard()
+
+    expect(screen.getByRole('region', { name: 'Task status counts' })).toHaveTextContent('1 pending')
+    expect(screen.getByRole('region', { name: 'Task status counts' })).toHaveTextContent('1 planning')
+    expect(screen.getByRole('region', { name: 'Task status counts' })).toHaveTextContent('1 executing')
+    expect(screen.getByRole('region', { name: 'Task status counts' })).toHaveTextContent('1 completed')
+    expect(screen.getByRole('region', { name: 'Task status counts' })).toHaveTextContent('1 failed')
+    expect(screen.getByRole('region', { name: 'Task status counts' })).toHaveTextContent('1 cancelled')
+  })
+
+  it('keeps the new-user next step visible when there are no Tasks', () => {
+    renderDashboard()
+
+    expect(screen.getByRole('region', { name: 'New user next step' })).toHaveTextContent(
+      'Create your first Task to start an Execution.',
+    )
+    expect(screen.getByRole('button', { name: 'Create Task' })).toBeInTheDocument()
+  })
+
+  it('does not auto-test Provider connections from Dashboard', () => {
+    storeMocks.providerState.providers = [
+      {
+        id: 'provider-openai',
+        providerType: 'openai',
+        displayName: 'OpenAI',
+        defaultModel: 'gpt-4o-mini',
+        isActive: true,
+      },
+    ]
+    storeMocks.providerState.healthByProviderId = {
+      'provider-openai': {
+        status: 'healthy',
+      },
+    }
+
+    renderDashboard()
+
+    expect(storeMocks.providerState.testProviderConfig).not.toHaveBeenCalled()
   })
 
   it('shows an Agent status summary before the recent Agent list', () => {
