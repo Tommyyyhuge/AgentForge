@@ -26,8 +26,13 @@ PLANNED_PROVIDER_TYPES = frozenset(
 class PlannedProviderAdapter:
     """Adapter placeholder that prevents execution for planned Providers."""
 
-    def __init__(self, *, provider_config: ProviderConfig) -> None:
-        if provider_config.provider_type not in PLANNED_PROVIDER_TYPES:
+    def __init__(
+        self,
+        *,
+        provider_config: ProviderConfig,
+        allowed_provider_types: frozenset[ProviderType] = PLANNED_PROVIDER_TYPES,
+    ) -> None:
+        if provider_config.provider_type not in allowed_provider_types:
             raise ValueError("Planned provider adapter requires a planned Provider.")
         self._provider_config = provider_config
 

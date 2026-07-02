@@ -1,9 +1,15 @@
 """ProviderConfig to ProviderAdapter resolution."""
 
+from collections.abc import Callable
+
 import httpx
 
 from agent_forge.core.providers.adapter import ProviderAdapter
-from agent_forge.core.providers.models import ProviderConfig, ProviderType
+from agent_forge.core.providers.models import (
+    ProviderConfig,
+    ProviderImplementationStatus,
+    ProviderType,
+)
 from agent_forge.core.providers.official import (
     AnthropicOfficialAdapter,
     DashScopeOfficialAdapter,
@@ -11,12 +17,86 @@ from agent_forge.core.providers.official import (
     OpenAICompatibleOfficialAdapter,
     OPENAI_COMPATIBLE_OFFICIAL_PROVIDER_TYPES,
 )
-from agent_forge.core.providers.planned import (
-    PLANNED_PROVIDER_TYPES,
-    PlannedProviderAdapter,
-)
+from agent_forge.core.providers.planned import PlannedProviderAdapter
 from agent_forge.core.providers.registry import ProviderRegistry
 from agent_forge.core.providers.relay import OpenAICompatibleRelayAdapter
+
+AdapterFactory = Callable[
+    [ProviderConfig, str, httpx.AsyncClient | None],
+    ProviderAdapter,
+]
+
+
+def _relay_adapter(
+    config: ProviderConfig,
+    api_key: str,
+    http_client: httpx.AsyncClient | None,
+) -> ProviderAdapter:
+    return OpenAICompatibleRelayAdapter(
+        provider_config=config,
+        api_key=api_key,
+        http_client=http_client,
+    )
+
+
+def _openai_compatible_official_adapter(
+    config: ProviderConfig,
+    api_key: str,
+    http_client: httpx.AsyncClient | None,
+) -> ProviderAdapter:
+    return OpenAICompatibleOfficialAdapter(
+        provider_config=config,
+        api_key=api_key,
+        http_client=http_client,
+    )
+
+
+def _anthropic_adapter(
+    config: ProviderConfig,
+    api_key: str,
+    http_client: httpx.AsyncClient | None,
+) -> ProviderAdapter:
+    return AnthropicOfficialAdapter(
+        provider_config=config,
+        api_key=api_key,
+        http_client=http_client,
+    )
+
+
+def _gemini_adapter(
+    config: ProviderConfig,
+    api_key: str,
+    http_client: httpx.AsyncClient | None,
+) -> ProviderAdapter:
+    return GeminiOfficialAdapter(
+        provider_config=config,
+        api_key=api_key,
+        http_client=http_client,
+    )
+
+
+def _dashscope_adapter(
+    config: ProviderConfig,
+    api_key: str,
+    http_client: httpx.AsyncClient | None,
+) -> ProviderAdapter:
+    return DashScopeOfficialAdapter(
+        provider_config=config,
+        api_key=api_key,
+        http_client=http_client,
+    )
+
+
+ADAPTER_FACTORIES: dict[ProviderType, AdapterFactory] = {
+    ProviderType.OPENAI_COMPATIBLE: _relay_adapter,
+    ProviderType.ANTHROPIC: _anthropic_adapter,
+    ProviderType.GEMINI: _gemini_adapter,
+    ProviderType.DASHSCOPE: _dashscope_adapter,
+    **{
+        provider_type: _openai_compatible_official_adapter
+        for provider_type in OPENAI_COMPATIBLE_OFFICIAL_PROVIDER_TYPES
+    },
+}
 
 
 class ProviderAdapterResolver:
@@ -35,38 +115,16 @@ class ProviderAdapterResolver:
         """Return a ProviderAdapter for the given ProviderConfig."""
         config = self._registry.validate_config(provider_config)
         provider_type = config.provider_type
+        preset = self._registry.get_preset(provider_type)
 
-        if provider_type == ProviderType.OPENAI_COMPATIBLE:
-            return OpenAICompatibleRelayAdapter(
+        if preset.implementation_status == ProviderImplementationStatus.PLANNED:
+            return PlannedProviderAdapter(
                 provider_config=config,
-                api_key=api_key,
-                http_client=http_client,
+                allowed_provider_types=frozenset({provider_type}),
             )
-        if provider_type in OPENAI_COMPATIBLE_OFFICIAL_PROVIDER_TYPES:
-            return OpenAICompatibleOfficialAdapter(
-                provider_config=config,
-                api_key=api_key,
-                http_client=http_client,
-            )
-        if provider_type == ProviderType.ANTHROPIC:
-            return AnthropicOfficialAdapter(
-                provider_config=config,
-                api_key=api_key,
-                http_client=http_client,
-            )
-        if provider_type == ProviderType.GEMINI:
-            return GeminiOfficialAdapter(
-                provider_config=config,
-                api_key=api_key,
-                http_client=http_client,
-            )
-        if provider_type == ProviderType.DASHSCOPE:
-            return DashScopeOfficialAdapter(
-                provider_config=config,
-                api_key=api_key,
-                http_client=http_client,
-            )
-        if provider_type in PLANNED_PROVIDER_TYPES:
-            return PlannedProviderAdapter(provider_config=config)
+
+        adapter_factory = ADAPTER_FACTORIES.get(provider_type)
+        if adapter_factory is not None:
+            return adapter_factory(config, api_key, http_client)
 
         return PlannedProviderAdapter(provider_config=config)

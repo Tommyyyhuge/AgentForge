@@ -13,6 +13,9 @@ from agent_forge.core.providers import (
     ProviderAdapterResolver,
     ProviderCapabilities,
     ProviderConfig,
+    ProviderImplementationStatus,
+    ProviderPreset,
+    ProviderRegistry,
     ProviderType,
 )
 
@@ -90,6 +93,30 @@ def test_resolver_maps_planned_provider_to_placeholder_adapter():
         id="provider-zhipu",
         provider_type=ProviderType.ZHIPU,
         display_name="Zhipu GLM",
+        capabilities=ProviderCapabilities(),
+    )
+
+    adapter = resolver.resolve(config, api_key="sk-test")
+
+    assert isinstance(adapter, PlannedProviderAdapter)
+
+
+def test_resolver_honors_registry_planned_status_before_type_mapping():
+    registry = ProviderRegistry(
+        presets=(
+            ProviderPreset(
+                provider_type=ProviderType.DASHSCOPE,
+                display_name="DashScope planned",
+                implementation_status=ProviderImplementationStatus.PLANNED,
+                capabilities=ProviderCapabilities(),
+            ),
+        )
+    )
+    resolver = ProviderAdapterResolver(registry=registry)
+    config = ProviderConfig(
+        id="provider-dashscope",
+        provider_type=ProviderType.DASHSCOPE,
+        display_name="DashScope planned",
         capabilities=ProviderCapabilities(),
     )
 
