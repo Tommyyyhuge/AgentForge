@@ -5,7 +5,7 @@ AgentForge 文件读写工具模块
 """
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from agent_forge.tools.base import BaseTool, ToolSchema
 from agent_forge.utils.logging import get_logger
@@ -46,7 +46,7 @@ def _sanitize_path(path: str) -> Path:
     # 检查是否仍在允许的目录范围内
     if ALLOWED_DIR not in resolved.parents and resolved != ALLOWED_DIR:
         raise FileSecurityError(
-            f"路径越权: {path} 不在允许的工作目录 {ALLOWED_DIR} 内"
+            f"路径越权: {path} 不在允许的任务文件目录 {ALLOWED_DIR} 内"
         )
 
     return resolved
@@ -55,12 +55,12 @@ def _sanitize_path(path: str) -> Path:
 class FileReadTool(BaseTool):
     """文件读取工具
 
-    安全地读取工作区内的文件内容，支持限制读取行数。
+    安全地读取任务文件目录内的文件内容，支持限制读取行数。
     自动拦截路径遍历攻击和超大文件。
     """
 
     name: str = "file_read"
-    description: str = "读取工作区文件内容，支持指定行数限制"
+    description: str = "读取任务文件内容，支持指定行数限制"
     version: str = "1.0"
 
     def _build_schema(self) -> ToolSchema:
@@ -75,7 +75,7 @@ class FileReadTool(BaseTool):
             parameters={
                 "path": {
                     "type": "string",
-                    "description": "文件路径（相对于工作区目录 ./workspace/）",
+                    "description": "文件路径（相对于任务文件目录 ./workspace/）",
                 },
                 "limit": {
                     "type": "integer",
@@ -169,12 +169,12 @@ class FileReadTool(BaseTool):
 class FileWriteTool(BaseTool):
     """文件写入工具
 
-    安全地将内容写入工作区内的文件，自动创建父目录。
+    安全地将内容写入任务文件目录内的文件，自动创建父目录。
     拦截路径遍历攻击和超限文件。
     """
 
     name: str = "file_write"
-    description: str = "将内容写入工作区文件，自动创建父目录"
+    description: str = "将内容写入任务文件，自动创建父目录"
     version: str = "1.0"
 
     def _build_schema(self) -> ToolSchema:
@@ -189,7 +189,7 @@ class FileWriteTool(BaseTool):
             parameters={
                 "path": {
                     "type": "string",
-                    "description": "文件路径（相对于工作区目录 ./workspace/）",
+                    "description": "文件路径（相对于任务文件目录 ./workspace/）",
                 },
                 "content": {
                     "type": "string",

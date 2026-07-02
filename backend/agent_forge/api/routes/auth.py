@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agent_forge.api.responses import success_response
 from agent_forge.database.connection import get_db
 from agent_forge.database.models import UserORM
 from agent_forge.api.middleware.auth import (
@@ -72,7 +73,7 @@ async def _get_user_by_email(
 
 @router.post(
     "/auth/register",
-    response_model=UserResponse,
+    response_model=None,
     status_code=status.HTTP_201_CREATED,
     summary="用户注册",
 )
@@ -120,12 +121,12 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
 
     logger.info(f"新用户注册: {user.username} ({user.email})")
 
-    return user
+    return success_response(UserResponse.model_validate(user))
 
 
 @router.post(
     "/auth/login",
-    response_model=Token,
+    response_model=None,
     summary="用户登录",
 )
 async def login(user_data: LoginRequest, db: AsyncSession = Depends(get_db)):
@@ -161,16 +162,16 @@ async def login(user_data: LoginRequest, db: AsyncSession = Depends(get_db)):
 
     logger.info(f"用户登录: {user.username}")
 
-    return Token(access_token=access_token, token_type="bearer")
+    return success_response(Token(access_token=access_token, token_type="bearer"))
 
 
 @router.get(
     "/auth/me",
-    response_model=UserResponse,
+    response_model=None,
     summary="获取当前用户信息",
 )
 async def read_users_me(
     current_user: UserORM = Depends(get_current_active_user),
 ):
     """获取当前登录用户的信息"""
-    return current_user
+    return success_response(UserResponse.model_validate(current_user))

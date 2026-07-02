@@ -10,7 +10,7 @@ interface CardProps {
 function Card({ children, className = '', noHover = false, onClick }: CardProps) {
   return (
     <div
-      className={`forge-card ${noHover ? '' : 'cursor-pointer'} ${className}`}
+      className={`forge-card rounded-forge ${noHover ? '' : 'cursor-pointer'} ${className}`}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter') onClick() } : undefined}
       role={onClick ? 'button' : undefined}

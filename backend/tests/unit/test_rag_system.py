@@ -673,10 +673,12 @@ class TestAugmentPrompt:
         try:
             await rag_system.import_document(tmp_path)
             result = await rag_system.augment_prompt("API Key 配置", limit=5)
-            assert "参考知识" in result
+            assert "Memory Retrieval" in result
+            assert "参考上下文" in result
             assert "API Key" in result
             assert "用户问题" in result
             assert "API Key 配置" in result
+            assert "知识库" not in result
         finally:
             os.unlink(tmp_path)
 
@@ -702,12 +704,13 @@ class TestAugmentPrompt:
             result = await rag_system.augment_prompt(
                 "数据库连接", context="生产环境", limit=5
             )
-            assert "参考知识" in result
+            assert "参考上下文" in result
             assert "数据库连接" in result
             assert "额外上下文" in result
             assert "生产环境" in result
             assert "用户问题" in result
             assert "数据库连接" in result
+            assert "知识库" not in result
         finally:
             os.unlink(tmp_path)
 
@@ -723,10 +726,15 @@ class TestAugmentPrompt:
             await rag_system.import_document(tmp_path)
             result = await rag_system.augment_prompt("测试知识", limit=5)
             lines = result.split("\n")
-            assert lines[0] == "你是一个知识库助手。请根据以下参考知识回答用户的问题。"
-            assert "=== 参考知识 ===" in lines
+            assert lines[0] == (
+                "你是一个 Memory Retrieval 助手。"
+                "请根据以下 Memory 和外部文档片段回答用户的问题。"
+            )
+            assert "=== 参考上下文 ===" in lines
             assert "=== 用户问题 ===" in lines
             assert "测试知识" in lines
+            assert "知识库" not in result
+            assert "请基于上述参考上下文回答问题：" in result
         finally:
             os.unlink(tmp_path)
 
@@ -810,7 +818,7 @@ class TestIntegration:
                 "ChromaDB 的作用是什么？", limit=3
             )
             assert "ChromaDB" in prompt
-            assert "参考知识" in prompt
+            assert "参考上下文" in prompt
             assert "用户问题" in prompt
 
             # 4. 文档管理

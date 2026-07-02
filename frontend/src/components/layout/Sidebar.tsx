@@ -70,7 +70,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         {!collapsed && (
           <div className="flex items-center gap-2.5 animate-fade-in">
             <Sparkles className="h-5 w-5 text-accent" />
-            <span className="text-base font-semibold tracking-tight text-white">
+            <span className="text-base font-semibold text-white">
               AgentForge
             </span>
           </div>

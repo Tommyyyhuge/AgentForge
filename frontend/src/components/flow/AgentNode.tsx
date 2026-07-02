@@ -30,7 +30,7 @@ const AgentNode = memo(({ data }: NodeProps<FlowNodeData>) => {
   const icon = ROLE_ICONS[data.role] || <Bot className="h-4 w-4" />
 
   // 提取背景色和文字色
-  const [bgClass = 'bg-slate-500/10'] = statusColor.split(' ')
+  const [bgClass = 'bg-semantic-idle/10'] = statusColor.split(' ')
 
   return (
     <motion.div
@@ -60,7 +60,7 @@ const AgentNode = memo(({ data }: NodeProps<FlowNodeData>) => {
 
       {/* 状态标签 */}
       <div className="mt-2 flex items-center justify-between">
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusColor}`}>
+        <span className={`inline-flex items-center rounded-forge px-2 py-0.5 text-[10px] font-medium ${statusColor}`}>
           {statusLabel}
         </span>
         <span className="text-[10px] text-neutral-500">{data.model}</span>

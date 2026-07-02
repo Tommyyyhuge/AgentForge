@@ -9,8 +9,9 @@
 
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { ApiResponse, ApiError } from '../types'
+import type { ApiResponse } from '../types'
 import apiClient from '../api/client'
+import { getApiErrorMessage, unwrapApiData } from '../api/envelope'
 
 // ============================================================
 // 类型
@@ -46,31 +47,9 @@ export interface AuthState {
 
 export const AUTH_STORAGE_KEY = 'agentforge-auth'
 
-// ============================================================
-// 辅助函数
-// ============================================================
-
-/** 从 axios 响应中提取 data — 兼容包裹/非包裹格式 */
-function extractData<T>(response: { data: ApiResponse<T> | T }): T {
-  const body = response.data as any
-  // FastAPI 直接返回模型时，body 就是数据本身
-  // 包裹格式: { success: true, data: {...} }
-  return body?.success ? body.data : body
-}
-
-/** 从 ApiError 中提取可读错误信息 */
-function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const axiosErr = err as { response?: { data?: ApiError } }
-    const apiError = axiosErr.response?.data
-    if (apiError?.error?.message) {
-      return apiError.error.message
-    }
-  }
-  if (err instanceof Error) {
-    return err.message
-  }
-  return '操作失败，请稍后重试'
+interface TokenResponse {
+  access_token: string
+  token_type: string
 }
 
 // ------- Store
@@ -93,14 +72,14 @@ export const useAuthStore = create<AuthState>()(
             username,
             password,
           })
-          const data = extractData(response) as any
+          const data = unwrapApiData<TokenResponse>(response.data)
           // 后端返回: { access_token, token_type }
           const token = data.access_token
           set({ token, isAuthenticated: true, isLoading: false, error: null })
           // 登录后获取用户信息
           await get().fetchUser()
         } catch (err) {
-          set({ isLoading: false, error: extractErrorMessage(err) })
+          set({ isLoading: false, error: getApiErrorMessage(err) })
           throw err
         }
       },
@@ -117,7 +96,7 @@ export const useAuthStore = create<AuthState>()(
           // 注册成功，自动登录
           await get().login(username, password)
         } catch (err) {
-          set({ isLoading: false, error: extractErrorMessage(err) })
+          set({ isLoading: false, error: getApiErrorMessage(err) })
           throw err
         }
       },
@@ -144,7 +123,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await apiClient.get<ApiResponse<AuthUser>>('/auth/me')
           set({
-            user: extractData(response),
+            user: unwrapApiData(response.data),
             isAuthenticated: true,
             isLoading: false,
           })
@@ -154,7 +133,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             isLoading: false,
-            error: extractErrorMessage(err),
+            error: getApiErrorMessage(err),
           })
         }
       },

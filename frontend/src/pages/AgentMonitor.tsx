@@ -16,12 +16,11 @@ import type { Agent } from '../types'
 
 /** Agent 角色图标映射 */
 const ROLE_ICONS: Record<string, React.ReactNode> = {
-  orchestrator:  <Cpu className="h-4 w-4 text-forge-400" />,
-  analyst:       <Bot className="h-4 w-4 text-cyan-400" />,
-  executor:      <Bot className="h-4 w-4 text-amber-400" />,
-  critic:        <Bot className="h-4 w-4 text-purple-400" />,
   researcher:    <Bot className="h-4 w-4 text-emerald-400" />,
-  communicator:  <Bot className="h-4 w-4 text-pink-400" />,
+  coder:         <Bot className="h-4 w-4 text-cyan-400" />,
+  writer:        <Bot className="h-4 w-4 text-brand-primary" />,
+  reviewer:      <Bot className="h-4 w-4 text-semantic-executing" />,
+  executor:      <Bot className="h-4 w-4 text-amber-400" />,
 }
 
 /** 格式化为多久之前 */
@@ -49,14 +48,14 @@ export default function AgentMonitor() {
   }, [fetchAgents, subscribeToAgents])
 
   const onlineCount = agents.filter((a) => a.status !== 'error').length
-  const busyCount = agents.filter((a) => a.status === 'executing' || a.status === 'thinking').length
+  const busyCount = agents.filter((a) => a.status === 'busy').length
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 animate-slide-up">
       {/* 标题栏 */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">Agent 监控</h2>
+          <h2 className="text-2xl font-bold text-white">Agent 监控</h2>
           <p className="mt-1 text-sm text-neutral-400">
             实时监控所有 Agent 的运行状态
           </p>

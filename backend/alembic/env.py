@@ -20,6 +20,9 @@ from agent_forge.database.models import (  # noqa: F401
     UserORM,
     MemoryORM,
     APIKeyORM,
+    ProviderConfigORM,
+    ModelConfigORM,
+    ProviderHealthCheckORM,
 )
 
 config = context.config

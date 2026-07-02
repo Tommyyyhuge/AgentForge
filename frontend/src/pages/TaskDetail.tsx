@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   Circle,
   Play,
+  Wifi,
+  WifiOff,
 } from 'lucide-react'
 import {
   useTaskStore,
@@ -27,6 +29,12 @@ const STEP_STATUS_ICON: Record<string, React.ReactNode> = {
   pending:   <Circle className="h-3.5 w-3.5 text-neutral-600" />,
 }
 
+const STREAM_STATUS_COLORS: Record<string, string> = {
+  connected: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+  connecting: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
+  disconnected: 'border-neutral-500/20 bg-neutral-500/10 text-neutral-400',
+}
+
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -36,6 +44,7 @@ export default function TaskDetail() {
     steps,
     isLoading,
     error,
+    streamStatus,
     fetchTaskDetail,
     subscribeToTask,
     clearError,
@@ -84,6 +93,8 @@ export default function TaskDetail() {
   }
 
   if (!currentTask) return null
+
+  const StreamIcon = streamStatus === 'connected' ? Wifi : WifiOff
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 animate-slide-up">
@@ -156,10 +167,19 @@ export default function TaskDetail() {
 
       {/* 执行步骤时间线 */}
       <div className="forge-card !bg-surface-dark">
-        <h3 className="mb-5 flex items-center gap-2 text-base font-semibold text-white">
-          <Play className="h-5 w-5 text-forge-400" />
-          执行步骤
-        </h3>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="flex items-center gap-2 text-base font-semibold text-white">
+            <Play className="h-5 w-5 text-forge-400" />
+            执行步骤
+          </h3>
+          <span
+            aria-live="polite"
+            className={`inline-flex w-fit items-center gap-1.5 rounded border px-2 py-1 text-xs ${STREAM_STATUS_COLORS[streamStatus]}`}
+          >
+            <StreamIcon className="h-3.5 w-3.5" />
+            SSE {streamStatus}
+          </span>
+        </div>
 
         {steps.length === 0 ? (
           <p className="py-8 text-center text-sm text-neutral-500">暂无执行步骤</p>
@@ -169,8 +189,8 @@ export default function TaskDetail() {
             <div className="absolute left-[19px] top-2 bottom-2 w-px bg-surface-border" />
 
             <div className="space-y-5">
-              {steps.map((step, idx) => (
-                <StepItem key={step.id} step={step} index={idx} />
+              {steps.map((step) => (
+                <StepItem key={step.id} step={step} />
               ))}
             </div>
           </div>
@@ -181,10 +201,14 @@ export default function TaskDetail() {
 }
 
 // 单个步骤项
-function StepItem({ step, index }: { step: import('../stores/taskStore').StepWithDisplay; index: number }) {
+function StepItem({ step }: { step: import('../stores/taskStore').StepWithDisplay }) {
   const statusIcon = STEP_STATUS_ICON[step.status] ?? STEP_STATUS_ICON.pending
   const typeColor = STEP_TYPE_COLORS[step.stepType] ?? STEP_TYPE_COLORS.action
   const typeLabel = STEP_TYPE_LABELS[step.stepType] ?? step.stepType
+  const isErrorStep = step.stepType === 'error' || step.status === 'failed'
+  const resultPanelClass = isErrorStep
+    ? 'border-red-500/20 bg-red-500/5'
+    : 'border-surface-border bg-white/[0.02]'
 
   return (
     <div className="relative flex gap-4">
@@ -198,7 +222,7 @@ function StepItem({ step, index }: { step: import('../stores/taskStore').StepWit
       <div className="flex-1 min-w-0 pt-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-neutral-500 tabular-nums">
-            #{String(index + 1).padStart(2, '0')}
+            #{String(step.order).padStart(2, '0')}
           </span>
           <span className={`forge-badge border ${typeColor}`}>
             {typeLabel}
@@ -213,9 +237,11 @@ function StepItem({ step, index }: { step: import('../stores/taskStore').StepWit
         </p>
 
         {step.result && (
-          <div className="mt-2 rounded-forge border border-surface-border
-                          bg-white/[0.02] p-3">
-            <p className="text-xs leading-relaxed text-neutral-400">
+          <div
+            role={isErrorStep ? 'alert' : undefined}
+            className={`mt-2 rounded-forge border p-3 ${resultPanelClass}`}
+          >
+            <p className={`text-xs leading-relaxed ${isErrorStep ? 'text-red-300' : 'text-neutral-400'}`}>
               {step.result}
             </p>
           </div>

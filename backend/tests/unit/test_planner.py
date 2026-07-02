@@ -180,6 +180,17 @@ class TestPlanner:
         """创建 Planner 实例（不依赖真实 LLM）"""
         return Planner(llm_router=MagicMock())
 
+    def test_prompt_lists_only_executable_agent_roles(self, planner):
+        """Planner prompt offers Agent roles, but not Planner as an Agent."""
+        prompt = planner._build_prompt("Plan a release")
+
+        assert "- researcher:" in prompt
+        assert "- coder:" in prompt
+        assert "- writer:" in prompt
+        assert "- reviewer:" in prompt
+        assert "- executor:" in prompt
+        assert "- planner:" not in prompt
+
     # ------------------------------------------------------------------
     # 严格 JSON 解析
     # ------------------------------------------------------------------

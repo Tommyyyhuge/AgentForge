@@ -11,7 +11,7 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import List, Set
 
 from agent_forge.tools.base import BaseTool, ToolSchema
 from agent_forge.utils.logging import get_logger

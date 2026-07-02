@@ -23,7 +23,7 @@ export default function Tasks() {
   })
 
   const statuses: Array<TaskStatus | 'all'> = [
-    'all', 'pending', 'running', 'completed', 'failed',
+    'all', 'pending', 'planning', 'executing', 'completed', 'failed', 'cancelled',
   ]
 
   return (
@@ -31,7 +31,7 @@ export default function Tasks() {
       {/* 标题栏 */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">任务管理</h2>
+          <h2 className="text-2xl font-bold text-white">任务管理</h2>
           <p className="mt-1 text-sm text-neutral-400">
             共 {tasks.length} 个任务
           </p>
@@ -175,7 +175,7 @@ export default function Tasks() {
 
 // 优先级徽章
 const PRIORITY_CONFIG = {
-  low:      { label: '低', cls: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+  low:      { label: '低', cls: 'bg-semantic-idle/10 text-semantic-idle border-semantic-idle/20' },
   medium:   { label: '中', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
   high:     { label: '高', cls: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
   critical: { label: '紧急', cls: 'bg-red-500/10 text-red-400 border-red-500/20' },

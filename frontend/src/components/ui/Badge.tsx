@@ -15,7 +15,7 @@ const sizeClasses = {
 } as const
 
 function Badge({ status, label, size = 'md', children }: BadgeProps) {
-  const colorClass = AGENT_STATUS_COLORS[status] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+  const colorClass = AGENT_STATUS_COLORS[status] ?? 'bg-semantic-idle/10 text-semantic-idle border-semantic-idle/20'
   const displayLabel = label ?? AGENT_STATUS_LABELS[status] ?? status
 
   return (

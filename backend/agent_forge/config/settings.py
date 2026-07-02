@@ -4,7 +4,7 @@ AgentForge 配置管理模块
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, SecretStr
+from pydantic import SecretStr
 
 
 class Settings(BaseSettings):
@@ -25,19 +25,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///data/agentforge.db"
 
     # JWT - 强制必须配置，开发环境提供默认值
-    JWT_SECRET_KEY: SecretStr = Field(
-        default="change-me-in-production-32-characters-long-key",
-        min_length=32,
+    JWT_SECRET_KEY: SecretStr = SecretStr(
+        "change-me-in-production-32-characters-long-key"
     )
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_DAYS: int = 7
 
     # 加密 - 强制必须配置，开发环境提供默认值
-    ENCRYPTION_KEY: SecretStr = Field(
-        default="change-me-in-production-32-characters-long-key",
-        min_length=32,
+    ENCRYPTION_KEY: SecretStr = SecretStr(
+        "change-me-in-production-32-characters-long-key"
     )
-    ENCRYPTION_SALT: SecretStr = Field(default="change-me-in-production-salt")
+    ENCRYPTION_SALT: SecretStr = SecretStr("change-me-in-production-salt")
 
     # CORS 配置
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"

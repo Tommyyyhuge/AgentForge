@@ -26,7 +26,7 @@ export default function Header({ onMenuClick, sidebarCollapsed: _sc }: HeaderPro
           <Menu className="h-5 w-5" />
         </button>
 
-        <h1 className="text-lg font-semibold tracking-tight text-white">
+        <h1 className="text-lg font-semibold text-white">
           AgentForge
         </h1>
       </div>

@@ -208,9 +208,132 @@ class APIKeyORM(Base):
 
     # 关联
     user: Mapped["UserORM"] = relationship("UserORM", back_populates="api_keys")
+    provider_configs: Mapped[List["ProviderConfigORM"]] = relationship(
+        "ProviderConfigORM", back_populates="api_key"
+    )
 
     def __repr__(self) -> str:
         return (
             f"<APIKeyORM(id={self.id!r}, provider={self.provider!r}, "
             f"masked={self.masked_key!r})>"
+        )
+
+
+class ProviderConfigORM(Base):
+    """Persisted Provider configuration."""
+
+    __tablename__ = "provider_configs"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    provider_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    base_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    auth_type: Mapped[str] = mapped_column(String, default="api_key_bearer")
+    api_key_id: Mapped[Optional[str]] = mapped_column(
+        String, ForeignKey("api_keys.id"), nullable=True
+    )
+    default_model: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    capabilities: Mapped[dict] = mapped_column(JSON, default=dict)
+    timeout_seconds: Mapped[int] = mapped_column(Integer, default=60)
+    rate_limit_policy: Mapped[dict] = mapped_column(JSON, default=dict)
+    streaming_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    tool_calling_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    api_key: Mapped[Optional["APIKeyORM"]] = relationship(
+        "APIKeyORM", back_populates="provider_configs"
+    )
+    models: Mapped[List["ModelConfigORM"]] = relationship(
+        "ModelConfigORM",
+        back_populates="provider",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    health_checks: Mapped[List["ProviderHealthCheckORM"]] = relationship(
+        "ProviderHealthCheckORM",
+        back_populates="provider",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ProviderConfigORM(id={self.id!r}, "
+            f"provider_type={self.provider_type!r})>"
+        )
+
+
+class ModelConfigORM(Base):
+    """Persisted model-level Provider configuration."""
+
+    __tablename__ = "model_configs"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    provider_id: Mapped[str] = mapped_column(
+        String, ForeignKey("provider_configs.id"), nullable=False, index=True
+    )
+    model_id: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    context_window: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    supports_streaming: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    supports_tool_calling: Mapped[Optional[bool]] = mapped_column(
+        Boolean, nullable=True
+    )
+    supports_json_mode: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    supports_vision: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    supports_embeddings: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    provider: Mapped["ProviderConfigORM"] = relationship(
+        "ProviderConfigORM", back_populates="models"
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ModelConfigORM(id={self.id!r}, model_id={self.model_id!r}, "
+            f"provider_id={self.provider_id!r})>"
+        )
+
+
+class ProviderHealthCheckORM(Base):
+    """Persisted Provider connection test result."""
+
+    __tablename__ = "provider_health_checks"
+
+    id: Mapped[str] = mapped_column(
+        String, primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    provider_id: Mapped[str] = mapped_column(
+        String, ForeignKey("provider_configs.id"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    latency_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error_code: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    model_tested: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    provider: Mapped["ProviderConfigORM"] = relationship(
+        "ProviderConfigORM", back_populates="health_checks"
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<ProviderHealthCheckORM(id={self.id!r}, "
+            f"provider_id={self.provider_id!r}, status={self.status!r})>"
         )

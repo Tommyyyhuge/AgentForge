@@ -277,7 +277,6 @@ class Planner:
     def _role_description(role: AgentRole) -> str:
         """获取 Agent 角色描述"""
         descriptions = {
-            AgentRole.PLANNER: "负责任务拆解和规划",
             AgentRole.RESEARCHER: "负责信息检索和调研分析",
             AgentRole.CODER: "负责代码编写和调试",
             AgentRole.WRITER: "负责文档撰写和内容创作",

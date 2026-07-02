@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent_forge.api.middleware.auth import get_current_active_user
+from agent_forge.api.responses import success_response
 from agent_forge.core.metrics_service import MetricsService
 from agent_forge.database.connection import get_db
 from agent_forge.database.models import UserORM
@@ -50,13 +51,30 @@ class SystemMetricsResponse(BaseModel):
     totalRequests: int
 
 
+class ProviderErrorCategoryResponse(BaseModel):
+    category: str
+    count: int
+
+
+class ProviderMetricResponse(BaseModel):
+    provider: str
+    model: str
+    calls: int
+    failures: int
+    avgLatencyMs: int
+    inputTokens: int
+    outputTokens: int
+    totalTokens: int
+    errorCategories: list[ProviderErrorCategoryResponse]
+
+
 # ============================================================
 # API 端点
 # ============================================================
 
 @router.get(
     "/tasks",
-    response_model=TaskMetricsResponse,
+    response_model=None,
     summary="任务执行时间趋势",
 )
 async def get_task_metrics(
@@ -70,12 +88,12 @@ async def get_task_metrics(
     """
     logger.info(f"用户 {user.username} 查询任务指标，时间范围: {range_hours}h")
     data = await MetricsService.get_task_metrics(db, range_hours or 24)
-    return TaskMetricsResponse(**data)
+    return success_response(TaskMetricsResponse(**data))
 
 
 @router.get(
     "/agents",
-    response_model=list[AgentMetricsResponse],
+    response_model=None,
     summary="Agent 调用分布",
 )
 async def get_agent_metrics(
@@ -88,12 +106,12 @@ async def get_agent_metrics(
     """
     logger.info(f"用户 {user.username} 查询 Agent 指标")
     data = await MetricsService.get_agent_metrics(db)
-    return [AgentMetricsResponse(**item) for item in data]
+    return success_response([AgentMetricsResponse(**item) for item in data])
 
 
 @router.get(
     "/tokens",
-    response_model=TokenMetricsResponse,
+    response_model=None,
     summary="Token 消耗趋势",
 )
 async def get_token_metrics(
@@ -107,12 +125,27 @@ async def get_token_metrics(
     """
     logger.info(f"用户 {user.username} 查询 Token 指标，时间范围: {range_hours}h")
     data = await MetricsService.get_token_metrics(db, range_hours or 24)
-    return TokenMetricsResponse(**data)
+    return success_response(TokenMetricsResponse(**data))
+
+
+@router.get(
+    "/providers",
+    response_model=None,
+    summary="Provider and model observability metrics",
+)
+async def get_provider_metrics(
+    range_hours: Optional[int] = Query(default=24, ge=1, le=168, description="鏃堕棿鑼冨洿锛堝皬鏃讹級"),
+    user: UserORM = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    logger.info(f"鐢ㄦ埛 {user.username} 鏌ヨ Provider 鎸囨爣锛屾椂闂磋寖鍥? {range_hours}h")
+    data = await MetricsService.get_provider_metrics(db, range_hours or 24)
+    return success_response([ProviderMetricResponse(**item) for item in data])
 
 
 @router.get(
     "/system",
-    response_model=SystemMetricsResponse,
+    response_model=None,
     summary="系统资源使用",
 )
 async def get_system_metrics(
@@ -125,4 +158,4 @@ async def get_system_metrics(
     """
     logger.info(f"用户 {user.username} 查询系统指标")
     data = await MetricsService.get_system_metrics(db)
-    return SystemMetricsResponse(**data)
+    return success_response(SystemMetricsResponse(**data))

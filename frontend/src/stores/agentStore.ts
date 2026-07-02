@@ -1,96 +1,30 @@
 import { create } from 'zustand'
 import type { Agent, AgentRole, AgentStatus, ApiResponse } from '../types'
 import apiClient, { createSSEConnection } from '../api/client'
+import { toAgent, unwrapApiData } from '../api/agents'
 
 // ============================================================
 // 状态标签 & 颜色映射（被页面组件直接引用）
 // ============================================================
 
 export const AGENT_STATUS_COLORS: Record<AgentStatus, string> = {
-  idle:      'bg-slate-500/10 text-slate-400 border-slate-500/20',
-  thinking:  'bg-forge-500/10 text-forge-400 border-forge-500/20',
-  executing: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  waiting:   'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  completed: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  error:     'bg-red-500/10 text-red-400 border-red-500/20',
+  idle:      'bg-semantic-idle/10 text-semantic-idle border-semantic-idle/20',
+  busy:      'bg-semantic-busy/10 text-semantic-busy border-semantic-busy/20',
+  error:     'bg-semantic-error/10 text-semantic-error border-semantic-error/20',
 }
 
 export const AGENT_STATUS_LABELS: Record<AgentStatus, string> = {
   idle:      '空闲',
-  thinking:  '思考中',
-  executing: '执行中',
-  waiting:   '等待中',
-  completed: '已完成',
+  busy:      '忙碌',
   error:     '错误',
 }
 
 export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
-  orchestrator:  '调度者',
-  analyst:       '分析者',
-  executor:      '执行者',
-  critic:        '评审者',
   researcher:    '研究者',
-  communicator:  '沟通者',
-}
-
-// ============================================================
-// Mock 数据（API 不可用时的降级方案）
-// ============================================================
-
-const MOCK_AGENTS: Agent[] = [
-  {
-    id: 'agent-1',
-    name: 'Prometheus',
-    role: 'orchestrator',
-    status: 'executing',
-    description: '任务调度与编排，拆解复杂需求为可执行子任务',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-15T08:00:00Z',
-    updatedAt: '2026-05-20T14:00:00Z',
-  },
-  {
-    id: 'agent-2',
-    name: 'Hephaestus',
-    role: 'executor',
-    status: 'idle',
-    description: '代码生成与文件操作，构建项目骨架',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-15T08:30:00Z',
-    updatedAt: '2026-05-20T12:00:00Z',
-  },
-  {
-    id: 'agent-3',
-    name: 'Athena',
-    role: 'analyst',
-    status: 'thinking',
-    description: '需求分析与技术方案评估',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-16T09:00:00Z',
-    updatedAt: '2026-05-20T10:00:00Z',
-  },
-  {
-    id: 'agent-4',
-    name: 'Momus',
-    role: 'critic',
-    status: 'idle',
-    description: '代码审查与质量把控，确保输出符合规范',
-    model: 'deepseek-v4-pro',
-    createdAt: '2026-05-16T10:00:00Z',
-    updatedAt: '2026-05-20T08:00:00Z',
-  },
-]
-
-// ============================================================
-// 辅助函数
-// ============================================================
-
-function extractData<T>(response: { data: ApiResponse<T> }): T {
-  return response.data.data
-}
-
-function isNetworkError(error: unknown): boolean {
-  return error instanceof Error &&
-    (error.message.includes('无法连接') || error.message.includes('网络'))
+  coder:         '程序员',
+  writer:        '撰写者',
+  reviewer:      '审查者',
+  executor:      '执行者',
 }
 
 // ============================================================
@@ -116,16 +50,12 @@ export const useAgentStore = create<AgentStore>((set) => ({
   fetchAgents: async () => {
     set({ isLoading: true, error: null })
     try {
-      const response = await apiClient.get<ApiResponse<Agent[]>>('/agents')
-      set({ agents: extractData(response), isLoading: false })
+      const response = await apiClient.get<ApiResponse<unknown[]> | unknown[]>('/agents')
+      const agents = unwrapApiData(response.data).map(toAgent)
+      set({ agents, isLoading: false })
     } catch (err) {
-      // API 不可达时降级为 mock 数据
-      if (isNetworkError(err)) {
-        console.warn('[AgentStore] 后端不可达，使用 mock 数据:', (err as Error).message)
-        set({ agents: MOCK_AGENTS, isLoading: false })
-        return
-      }
-      set({ isLoading: false, error: (err as Error).message })
+      const message = err instanceof Error ? err.message : '加载 Agent 失败'
+      set({ agents: [], isLoading: false, error: message })
     }
   },
 
@@ -146,19 +76,20 @@ export const useAgentStore = create<AgentStore>((set) => ({
           // { type: 'agent_update', agent: Agent }
           const event = data as {
             type: string
-            agent?: Agent
+            agent?: unknown
           }
 
           if (event.type === 'agent_update' && event.agent) {
+            const nextAgent = toAgent(event.agent)
             set((s) => {
-              const idx = s.agents.findIndex((a) => a.id === event.agent!.id)
+              const idx = s.agents.findIndex((a) => a.id === nextAgent.id)
               if (idx >= 0) {
                 const updated = [...s.agents]
-                updated[idx] = event.agent!
+                updated[idx] = nextAgent
                 return { agents: updated }
               }
               // 新 Agent 出现
-              return { agents: [...s.agents, event.agent!] }
+              return { agents: [...s.agents, nextAgent] }
             })
           }
         },

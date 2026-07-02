@@ -6,12 +6,14 @@ import os
 
 from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
                                     create_async_engine)
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
 
 from agent_forge.config.settings import settings
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 # 创建异步引擎
@@ -78,6 +80,7 @@ async def init_db():
     """初始化数据库 — 使用 Alembic 迁移"""
     from alembic import command
     from alembic.config import Config
+    from agent_forge.database import models  # noqa: F401
 
     alembic_ini = os.path.join(
         os.path.dirname(__file__), "..", "..", "alembic.ini"
@@ -86,6 +89,16 @@ async def init_db():
     # Alembic upgrade 是同步的，在线程池中执行避免阻塞事件循环
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, command.upgrade, alembic_cfg, "head")
+
+    await bootstrap_provider_configs()
+
+
+async def bootstrap_provider_configs():
+    """Bootstrap Provider configs from existing legacy API keys."""
+    from agent_forge.core.providers import ProviderConfigService
+
+    async with async_session() as session:
+        await ProviderConfigService().bootstrap_from_api_keys(session)
 
 
 async def close_db():

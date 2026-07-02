@@ -7,10 +7,12 @@
 - 外部记忆（Mock）
 - 上下文构建
 """
+import inspect
 from unittest.mock import patch
 
 import pytest
 
+import agent_forge.core.memory_manager as memory_manager_module
 from agent_forge.core.memory_manager import (
     MemoryEntry,
     MemoryManager,
@@ -258,15 +260,30 @@ class TestLongTermMemory:
 class TestExternalMemory:
     """外部记忆（Mock）测试"""
 
+    def test_public_memory_docs_do_not_describe_knowledge_base(self):
+        """当前 Memory 边界不应把外部记忆描述成 Knowledge Base。"""
+        public_docs = "\n".join([
+            memory_manager_module.__doc__ or "",
+            inspect.getdoc(MemoryType) or "",
+            inspect.getdoc(MemoryManager) or "",
+            inspect.getdoc(MemoryManager.add_external) or "",
+            inspect.getdoc(MemoryManager.search_external) or "",
+        ])
+
+        assert "Knowledge Base" not in public_docs
+        assert "knowledge_base" not in public_docs
+        assert "知识库" not in public_docs
+        assert "外部文档" in public_docs
+
     @pytest.mark.asyncio
     async def test_add_external(self, memory_manager: MemoryManager):
         """添加外部记忆"""
         entry = await memory_manager.add_external(
-            content="外部知识库内容",
-            source="knowledge_base",
+            content="外部文档内容",
+            source="external_document",
             metadata={"doc_id": "doc-1"},
         )
-        assert entry.source == "knowledge_base"
+        assert entry.source == "external_document"
         assert entry.memory_type == MemoryType.EXTERNAL
         assert entry.metadata["doc_id"] == "doc-1"
 
@@ -400,6 +417,32 @@ class TestEdgeCases:
             assert entry.content == "降级测试"
             results = await mm.search_long_term("降级测试")
             assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_sqlite_write_failure_is_not_swallowed(
+        self, memory_manager: MemoryManager
+    ):
+        """SQLite 降级写入失败时应向调用方暴露错误"""
+
+        class BrokenSession:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            def add(self, _entry):
+                pass
+
+            async def commit(self):
+                raise RuntimeError("database unavailable")
+
+        with patch(
+            "agent_forge.database.connection.async_session",
+            return_value=BrokenSession(),
+        ):
+            with pytest.raises(RuntimeError, match="database unavailable"):
+                await memory_manager.add_long_term("写入失败测试")
 
     @pytest.mark.asyncio
     async def test_concurrent_add(self, memory_manager: MemoryManager):
